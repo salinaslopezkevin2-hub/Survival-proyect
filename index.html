@@ -3,30 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - Versión Optimizada</title>
+    <title>Nexus FPS - GitHub Version</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #bloqueo {
             position: absolute; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: white; cursor: pointer; z-index: 10;
+            color: white; cursor: pointer; z-index: 20; text-align: center;
         }
         #mira {
             position: absolute; top: 50%; left: 50%;
-            width: 10px; height: 10px; border: 2px solid #00ff00;
+            width: 12px; height: 12px; border: 2px solid #00ff00;
             border-radius: 50%; transform: translate(-50%, -50%);
-            z-index: 5; pointer-events: none; mix-blend-mode: difference;
+            z-index: 10; pointer-events: none;
         }
-        h1 { font-size: 3rem; margin: 0; color: #ff3333; text-transform: uppercase; }
-        p { font-size: 1.2rem; }
+        h1 { color: #ff3333; margin: 0; letter-spacing: 4px; }
+        p { margin: 10px; color: #ccc; }
     </style>
 </head>
 <body>
     <div id="bloqueo">
         <h1>NEXUS FPS</h1>
-        <p>Haz clic para jugar</p>
-        <p style="font-size: 0.9rem; color: #aaa;">(WASD: Mover | Espacio: Saltar | Clic: Disparar)</p>
+        <p>CLIC PARA EMPEZAR</p>
+        <p style="font-size: 0.8rem;">WASD: Mover | ESPACIO: Saltar | CLIC: Disparar</p>
     </div>
     <div id="mira"></div>
 
@@ -40,200 +40,145 @@
     </script>
 
     <script type="module">
-        import * as THREE from 'this-is-not-needed-here-redundant-but-for-context'; 
-        import * as THREE_LIB from 'three';
-        const THREE = THREE_LIB;
+        import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- 1. CONFIGURACIÓN ORIGINAL ---
+        // --- ESCENA ---
         const escena = new THREE.Scene();
-        escena.background = new THREE.Color(0x87ceeb); 
-        escena.fog = new THREE.Fog(0x87ceeb, 0, 50);
+        escena.background = new THREE.Color(0x87ceeb);
+        escena.fog = new THREE.Fog(0x87ceeb, 0, 70);
 
         const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderizador = new THREE.WebGLRenderer({ antialias: true });
         renderizador.setSize(window.innerWidth, window.innerHeight);
         renderizador.shadowMap.enabled = true;
-        renderizador.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderizador.domElement);
 
-        // --- 2. ILUMINACIÓN ---
-        const luzHemisferio = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-        luzHemisferio.position.set(0, 20, 0);
-        escena.add(luzHemisferio);
+        // --- LUCES ---
+        escena.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+        const sol = new THREE.DirectionalLight(0xffffff, 0.8);
+        sol.position.set(10, 20, 10);
+        sol.castShadow = true;
+        escena.add(sol);
 
-        const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.8);
-        luzDireccional.position.set(20, 30, 10);
-        luzDireccional.castShadow = true;
-        escena.add(luzDireccional);
+        // --- MUNDO ---
+        const loaderTex = new THREE.TextureLoader();
+        const texPiso = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/rocky_terrain_02.png?height=760&quality=95');
+        texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping;
+        texPiso.repeat.set(20, 20);
 
-        // --- 3. TEXTURAS Y MUNDO (RESTAURADAS) ---
-        const cargadorTexturas = new THREE.TextureLoader();
-        const texturaPiso = cargadorTexturas.load('https://cdn.polyhaven.com/asset_img/primary/rocky_terrain_02.png?height=760&quality=95');
-        texturaPiso.wrapS = texturaPiso.wrapT = THREE.RepeatWrapping;
-        texturaPiso.repeat.set(20, 20); 
-
-        const texturaTronco = cargadorTexturas.load('https://cdn.polyhaven.com/asset_img/primary/bark_willow_02.png?height=760&quality=95');
-        texturaTronco.wrapS = texturaTronco.wrapT = THREE.RepeatWrapping;
-        texturaTronco.repeat.set(2, 3); 
-
-        const materialPiso = new THREE.MeshStandardMaterial({ map: texturaPiso, roughness: 0.9 });
-        const piso = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), materialPiso);
+        const piso = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: texPiso }));
         piso.rotation.x = -Math.PI / 2;
         piso.receiveShadow = true;
         escena.add(piso);
 
-        const enemigos = []; 
-        const geometriaTronco = new THREE.CylinderGeometry(1, 1, 4, 16);
-        const materialTronco = new THREE.MeshStandardMaterial({ map: texturaTronco, roughness: 1.0 });
+        const enemigos = [];
+        const geoTronco = new THREE.CylinderGeometry(1, 1, 4, 12);
+        const texMadera = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/bark_willow_02.png?height=760&quality=95');
+        const matMadera = new THREE.MeshStandardMaterial({ map: texMadera });
 
         for(let i=0; i<25; i++) {
-            const tronco = new THREE.Mesh(geometriaTronco, materialTronco);
-            const escala = Math.random() * 1.5 + 0.5;
-            tronco.scale.set(escala, escala, escala);
-            tronco.position.set((Math.random() - 0.5) * 80, 2 * escala, (Math.random() - 0.5) * 80);
-            tronco.rotation.y = Math.random() * Math.PI; 
+            const tronco = new THREE.Mesh(geoTronco, matMadera);
+            tronco.position.set((Math.random()-0.5)*90, 2, (Math.random()-0.5)*90);
             tronco.castShadow = true;
-            tronco.receiveShadow = true;
-            tronco.radioColision = 1 * escala; 
+            tronco.radioH = 1.3; 
             escena.add(tronco);
-            enemigos.push(tronco); 
+            enemigos.push(tronco);
         }
 
-        // --- 4. PERSONAJE ---
+        // --- PERSONAJE ---
+        let mezclador, modelo;
         const reloj = new THREE.Clock();
-        let mezcladorAnimaciones;
-        const cargadorModelos = new GLTFLoader();
-        let modeloJugador = null; 
-
-        cargadorModelos.load('./idle.glb', (gltf) => {
-            modeloJugador = gltf.scene;
-            modeloJugador.scale.set(0.01, 0.01, 0.01);
-            modeloJugador.traverse((hijo) => {
-                if (hijo.isMesh) {
-                    hijo.castShadow = true;
-                    hijo.receiveShadow = true;
-                    hijo.material = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.7 });
-                    hijo.frustumCulled = false; 
-                }
-            });
-            escena.add(modeloJugador);
-            if(gltf.animations.length > 0) {
-                mezcladorAnimaciones = new THREE.AnimationMixer(modeloJugador);
-                mezcladorAnimaciones.clipAction(gltf.animations[0]).play(); 
+        new GLTFLoader().load('./idle.glb', (gltf) => {
+            modelo = gltf.scene;
+            modelo.scale.set(0.01, 0.01, 0.01);
+            modelo.traverse(n => { if(n.isMesh) { n.castShadow = true; n.frustumCulled = false; }});
+            escena.add(modelo);
+            if(gltf.animations.length) {
+                mezclador = new THREE.AnimationMixer(modelo);
+                mezclador.clipAction(gltf.animations[0]).play();
             }
         });
 
-        // --- 5. CONTROLES Y FÍSICAS ---
+        // --- CONTROLES Y FÍSICAS ---
         const controles = new PointerLockControls(camara, document.body);
-        const pantallaBloqueo = document.getElementById('bloqueo');
-        pantallaBloqueo.addEventListener('click', () => { controles.lock(); });
-        controles.addEventListener('lock', () => { pantallaBloqueo.style.display = 'none'; });
-        controles.addEventListener('unlock', () => { pantallaBloqueo.style.display = 'flex'; });
+        const overlay = document.getElementById('bloqueo');
+        overlay.addEventListener('click', () => controles.lock());
+        controles.addEventListener('lock', () => overlay.style.display = 'none');
+        controles.addEventListener('unlock', () => overlay.style.display = 'flex');
 
-        const teclas = { w: false, a: false, s: false, d: false };
-        let velocidadY = 0;
-        const velocidadMovimiento = 0.15;
-        const gravedad = 0.015;
-        let enElPiso = true;
-        const alturaJugador = 1.6;
-        let tiempoCaminando = 0;
+        const teclas = { w:false, a:false, s:false, d:false };
+        let velY = 0;
+        let enSuelo = true;
 
-        document.addEventListener('keydown', (e) => {
-            if(e.code === 'KeyW') teclas.w = true;
-            if(e.code === 'KeyA') teclas.a = true;
-            if(e.code === 'KeyS') teclas.s = true;
-            if(e.code === 'KeyD') teclas.d = true;
-            if(e.code === 'Space' && enElPiso) { velocidadY = 0.3; enElPiso = false; } 
+        document.addEventListener('keydown', e => {
+            const k = e.code;
+            if(k==='KeyW') teclas.w=true; if(k==='KeyS') teclas.s=true;
+            if(k==='KeyA') teclas.a=true; if(k==='KeyD') teclas.d=true;
+            if(k==='Space' && enSuelo) { velY = 0.25; enSuelo = false; }
         });
-        document.addEventListener('keyup', (e) => {
-            if(e.code === 'KeyW') teclas.w = false;
-            if(e.code === 'KeyA') teclas.a = false;
-            if(e.code === 'KeyS') teclas.s = false;
-            if(e.code === 'KeyD') teclas.d = false;
+        document.addEventListener('keyup', e => {
+            const k = e.code;
+            if(k==='KeyW') teclas.w=false; if(k==='KeyS') teclas.s=false;
+            if(k==='KeyA') teclas.a=false; if(k==='KeyD') teclas.d=false;
         });
 
-        // --- 6. SISTEMA DE DISPARO ---
-        const raycasterDisparo = new THREE.Raycaster();
+        // --- DISPARO ---
+        const ray = new THREE.Raycaster();
         window.addEventListener('mousedown', () => {
             if(!controles.isLocked) return;
-            raycasterDisparo.setFromCamera(new THREE.Vector2(0, 0), camara);
-            const impactos = raycasterDisparo.intersectObjects(enemigos);
-            if(impactos.length > 0) {
-                const objetivo = impactos[0].object;
-                escena.remove(objetivo);
-                const index = enemigos.indexOf(objetivo);
-                if (index > -1) enemigos.splice(index, 1);
+            ray.setFromCamera(new THREE.Vector2(0, 0), camara);
+            const hits = ray.intersectObjects(enemigos);
+            if(hits.length > 0) {
+                escena.remove(hits[0].object);
+                enemigos.splice(enemigos.indexOf(hits[0].object), 1);
             }
         });
 
-        // --- 7. BUCLE DE ANIMACIÓN ---
+        // --- BUCLE ---
         function animar() {
             requestAnimationFrame(animar);
             const delta = reloj.getDelta();
-            if (mezcladorAnimaciones) mezcladorAnimaciones.update(delta);
+            if(mezclador) mezclador.update(delta);
 
-            if (controles.isLocked) {
-                const posAnterior = camara.position.clone();
-
-                if (teclas.w) controles.moveForward(velocidadMovimiento);
-                if (teclas.s) controles.moveForward(-velocidadMovimiento);
-                if (teclas.a) controles.moveRight(-velocidadMovimiento);
-                if (teclas.d) controles.moveRight(velocidadMovimiento);
+            if(controles.isLocked) {
+                const prevPos = camara.position.clone();
+                if(teclas.w) controles.moveForward(0.15);
+                if(teclas.s) controles.moveForward(-0.15);
+                if(teclas.a) controles.moveRight(-0.12);
+                if(teclas.d) controles.moveRight(0.12);
 
                 // Gravedad
-                camara.position.y += velocidadY;
-                if (!enElPiso) { velocidadY -= gravedad; }
-                if (camara.position.y <= alturaJugador) {
-                    camara.position.y = alturaJugador;
-                    velocidadY = 0;
-                    enElPiso = true;
-                }
+                camara.position.y += velY;
+                if(!enSuelo) velY -= 0.015;
+                if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; }
 
-                if (modeloJugador) {
-                    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-                    euler.setFromQuaternion(camara.quaternion);
-                    
-                    // Posición Free Fire
-                    const offset = new THREE.Vector3(0.7, -1.6, -2.5);
-                    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), euler.y); 
-                    modeloJugador.position.copy(camara.position).add(offset);
-                    modeloJugador.rotation.y = euler.y + Math.PI;
+                if(modelo) {
+                    const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
+                    const offset = new THREE.Vector3(0.7, -1.6, -2.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y);
+                    modelo.position.copy(camara.position).add(offset);
+                    modelo.rotation.y = euler.y + Math.PI;
 
-                    // COLISIÓN DEL PERSONAJE (Basada en su posición real)
-                    let choco = false;
-                    for(let tronco of enemigos) {
-                        const dist = modeloJugador.position.distanceTo(new THREE.Vector3(tronco.position.x, modeloJugador.position.y, tronco.position.z));
-                        if (dist < tronco.radioColision + 0.3) {
-                            choco = true;
-                            break;
+                    // Hitbox Check
+                    for(let t of enemigos) {
+                        const dist = modelo.position.distanceTo(new THREE.Vector3(t.position.x, modelo.position.y, t.position.z));
+                        if(dist < t.radioH) {
+                            camara.position.x = prevPos.x;
+                            camara.position.z = prevPos.z;
                         }
                     }
-
-                    if (choco) {
-                        camara.position.x = posAnterior.x;
-                        camara.position.z = posAnterior.z;
-                    }
-
-                    // Balanceo
-                    if (teclas.w || teclas.s || teclas.a || teclas.d) {
-                        tiempoCaminando += 0.15;
-                        modeloJugador.position.y += Math.sin(tiempoCaminando) * 0.05;
-                        modeloJugador.rotation.z = Math.sin(tiempoCaminando / 2) * 0.03;
-                    }
                 }
-            } 
+            }
             renderizador.render(escena, camara);
         }
+        animar();
 
         window.addEventListener('resize', () => {
             camara.aspect = window.innerWidth / window.innerHeight;
             camara.updateProjectionMatrix();
             renderizador.setSize(window.innerWidth, window.innerHeight);
         });
-
-        animar(); 
     </script>
 </body>
 </html>
