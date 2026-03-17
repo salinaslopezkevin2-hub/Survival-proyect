@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - GitHub Version</title>
+    <title>Nexus FPS - Pro Anim</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #bloqueo {
@@ -14,21 +14,24 @@
         }
         #mira {
             position: absolute; top: 50%; left: 50%;
-            width: 12px; height: 12px; border: 2px solid #00ff00;
+            width: 14px; height: 14px; border: 2px solid #00ff00;
             border-radius: 50%; transform: translate(-50%, -50%);
             z-index: 10; pointer-events: none;
         }
-        h1 { color: #ff3333; margin: 0; letter-spacing: 4px; }
-        p { margin: 10px; color: #ccc; }
+        #hud {
+            position: absolute; bottom: 20px; left: 20px;
+            color: #00ff00; font-family: monospace; font-size: 1.5rem;
+            text-shadow: 2px 2px #000; pointer-events: none;
+        }
     </style>
 </head>
 <body>
     <div id="bloqueo">
         <h1>NEXUS FPS</h1>
-        <p>CLIC PARA EMPEZAR</p>
-        <p style="font-size: 0.8rem;">WASD: Mover | ESPACIO: Saltar | CLIC: Disparar</p>
+        <p>CLIC PARA COMBATIR</p>
     </div>
     <div id="mira"></div>
+    <div id="hud">ARMA: RIFLE BÁSICO</div>
 
     <script type="importmap">
         {
@@ -44,7 +47,6 @@
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- ESCENA ---
         const escena = new THREE.Scene();
         escena.background = new THREE.Color(0x87ceeb);
         escena.fog = new THREE.Fog(0x87ceeb, 0, 70);
@@ -55,19 +57,17 @@
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        // --- LUCES ---
         escena.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
         const sol = new THREE.DirectionalLight(0xffffff, 0.8);
         sol.position.set(10, 20, 10);
         sol.castShadow = true;
         escena.add(sol);
 
-        // --- MUNDO ---
+        // --- PISO Y ENEMIGOS ---
         const loaderTex = new THREE.TextureLoader();
         const texPiso = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/rocky_terrain_02.png?height=760&quality=95');
         texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping;
         texPiso.repeat.set(20, 20);
-
         const piso = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: texPiso }));
         piso.rotation.x = -Math.PI / 2;
         piso.receiveShadow = true;
@@ -87,41 +87,49 @@
             enemigos.push(tronco);
         }
 
-        // --- PERSONAJE ---
-        let mezclador, modelo;
+        // --- SISTEMA DE ANIMACIÓN ---
+        let mezcladorIdle, mezcladorRun;
+        let modeloIdle, modeloRun;
         const reloj = new THREE.Clock();
-        new GLTFLoader().load('./idle.glb', (gltf) => {
-            modelo = gltf.scene;
-            modelo.scale.set(0.01, 0.01, 0.01);
-            modelo.traverse(n => { if(n.isMesh) { n.castShadow = true; n.frustumCulled = false; }});
-            escena.add(modelo);
-            if(gltf.animations.length) {
-                mezclador = new THREE.AnimationMixer(modelo);
-                mezclador.clipAction(gltf.animations[0]).play();
-            }
+        const loader = new GLTFLoader();
+
+        // Cargar IDLE
+        loader.load('./idle.glb', (gltf) => {
+            modeloIdle = gltf.scene;
+            modeloIdle.scale.set(0.01, 0.01, 0.01);
+            modeloIdle.traverse(n => { if(n.isMesh) n.castShadow = true; });
+            escena.add(modeloIdle);
+            mezcladorIdle = new THREE.AnimationMixer(modeloIdle);
+            mezcladorIdle.clipAction(gltf.animations[0]).play();
         });
 
-        // --- CONTROLES Y FÍSICAS ---
+        // Cargar RUN
+        loader.load('./correr.glb', (gltf) => {
+            modeloRun = gltf.scene;
+            modeloRun.scale.set(0.01, 0.01, 0.01);
+            modeloRun.traverse(n => { if(n.isMesh) n.castShadow = true; });
+            modeloRun.visible = false; // Oculto al inicio
+            escena.add(modeloRun);
+            mezcladorRun = new THREE.AnimationMixer(modeloRun);
+            mezcladorRun.clipAction(gltf.animations[0]).play();
+        });
+
+        // --- CONTROLES ---
         const controles = new PointerLockControls(camara, document.body);
-        const overlay = document.getElementById('bloqueo');
-        overlay.addEventListener('click', () => controles.lock());
-        controles.addEventListener('lock', () => overlay.style.display = 'none');
-        controles.addEventListener('unlock', () => overlay.style.display = 'flex');
+        document.getElementById('bloqueo').addEventListener('click', () => controles.lock());
+        controles.addEventListener('lock', () => document.getElementById('bloqueo').style.display = 'none');
+        controles.addEventListener('unlock', () => document.getElementById('bloqueo').style.display = 'flex');
 
         const teclas = { w:false, a:false, s:false, d:false };
         let velY = 0;
         let enSuelo = true;
 
         document.addEventListener('keydown', e => {
-            const k = e.code;
-            if(k==='KeyW') teclas.w=true; if(k==='KeyS') teclas.s=true;
-            if(k==='KeyA') teclas.a=true; if(k==='KeyD') teclas.d=true;
-            if(k==='Space' && enSuelo) { velY = 0.25; enSuelo = false; }
+            if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
+            if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
         });
         document.addEventListener('keyup', e => {
-            const k = e.code;
-            if(k==='KeyW') teclas.w=false; if(k==='KeyS') teclas.s=false;
-            if(k==='KeyA') teclas.a=false; if(k==='KeyD') teclas.d=false;
+            if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false;
         });
 
         // --- DISPARO ---
@@ -136,36 +144,51 @@
             }
         });
 
-        // --- BUCLE ---
         function animar() {
             requestAnimationFrame(animar);
             const delta = reloj.getDelta();
-            if(mezclador) mezclador.update(delta);
+            if(mezcladorIdle) mezcladorIdle.update(delta);
+            if(mezcladorRun) mezcladorRun.update(delta);
 
             if(controles.isLocked) {
                 const prevPos = camara.position.clone();
+                const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
+
                 if(teclas.w) controles.moveForward(0.15);
                 if(teclas.s) controles.moveForward(-0.15);
                 if(teclas.a) controles.moveRight(-0.12);
                 if(teclas.d) controles.moveRight(0.12);
 
-                // Gravedad
                 camara.position.y += velY;
                 if(!enSuelo) velY -= 0.015;
                 if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; }
 
-                if(modelo) {
+                // Lógica de cambio de mono (Hitbut de animación)
+                if(modeloIdle && modeloRun) {
                     const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
                     const offset = new THREE.Vector3(0.7, -1.6, -2.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y);
-                    modelo.position.copy(camara.position).add(offset);
-                    modelo.rotation.y = euler.y + Math.PI;
+                    const finalPos = camara.position.clone().add(offset);
 
-                    // Hitbox Check
+                    // Posicionar ambos
+                    modeloIdle.position.copy(finalPos);
+                    modeloIdle.rotation.y = euler.y + Math.PI;
+                    modeloRun.position.copy(finalPos);
+                    modeloRun.rotation.y = euler.y + Math.PI;
+
+                    // Intercambiar visibilidad
+                    if(moviendose && enSuelo) {
+                        modeloIdle.visible = false;
+                        modeloRun.visible = true;
+                    } else {
+                        modeloIdle.visible = true;
+                        modeloRun.visible = false;
+                    }
+
+                    // Colisión
                     for(let t of enemigos) {
-                        const dist = modelo.position.distanceTo(new THREE.Vector3(t.position.x, modelo.position.y, t.position.z));
+                        const dist = modeloIdle.position.distanceTo(new THREE.Vector3(t.position.x, modeloIdle.position.y, t.position.z));
                         if(dist < t.radioH) {
-                            camara.position.x = prevPos.x;
-                            camara.position.z = prevPos.z;
+                            camara.position.copy(prevPos);
                         }
                     }
                 }
