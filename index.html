@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - Pro Anim</title>
+    <title>Nexus FPS - Versión Final FBX</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #bloqueo {
@@ -31,13 +31,14 @@
         <p>CLIC PARA COMBATIR</p>
     </div>
     <div id="mira"></div>
-    <div id="hud">ARMA: RIFLE BÁSICO</div>
+    <div id="hud">ARMA: RIFLE</div>
 
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "fflate": "https://unpkg.com/fflate@0.8.2/esm/browser.js"
             }
         }
     </script>
@@ -45,8 +46,9 @@
     <script type="module">
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
+        // --- ESCENA BÁSICA ---
         const escena = new THREE.Scene();
         escena.background = new THREE.Color(0x87ceeb);
         escena.fog = new THREE.Fog(0x87ceeb, 0, 70);
@@ -87,34 +89,48 @@
             enemigos.push(tronco);
         }
 
-        // --- SISTEMA DE ANIMACIÓN ---
+        // --- SISTEMA DE ANIMACIÓN CON FBX ---
         let mezcladorIdle, mezcladorRun;
         let modeloIdle, modeloRun;
         const reloj = new THREE.Clock();
-        const loader = new GLTFLoader();
+        const fbxLoader = new FBXLoader();
 
-        // Cargar IDLE
-        loader.load('./idle.glb', (gltf) => {
-            modeloIdle = gltf.scene;
-            modeloIdle.scale.set(0.01, 0.01, 0.01);
-            modeloIdle.traverse(n => { if(n.isMesh) n.castShadow = true; });
-            escena.add(modeloIdle);
-            mezcladorIdle = new THREE.AnimationMixer(modeloIdle);
-            mezcladorIdle.clipAction(gltf.animations[0]).play();
-        });
+        function cargarModeloFBX(url, tipo) {
+            fbxLoader.load(url, (objeto) => {
+                objeto.scale.set(0.01, 0.01, 0.01);
+                
+                objeto.traverse(n => { 
+                    if(n.isMesh) {
+                        n.castShadow = true;
+                    }
+                });
+                
+                if (tipo === 'idle') {
+                    modeloIdle = objeto;
+                    escena.add(modeloIdle);
+                    if (objeto.animations.length > 0) {
+                        mezcladorIdle = new THREE.AnimationMixer(modeloIdle);
+                        mezcladorIdle.clipAction(objeto.animations[0]).play();
+                    }
+                } else {
+                    modeloRun = objeto;
+                    modeloRun.visible = false;
+                    escena.add(modeloRun);
+                    if (objeto.animations.length > 0) {
+                        mezcladorRun = new THREE.AnimationMixer(modeloRun);
+                        mezcladorRun.clipAction(objeto.animations[0]).play();
+                    }
+                }
+            }, undefined, (error) => {
+                console.error("No se pudo cargar: " + url, error);
+            });
+        }
 
-        // Cargar RUN
-        loader.load('./correr.glb', (gltf) => {
-            modeloRun = gltf.scene;
-            modeloRun.scale.set(0.01, 0.01, 0.01);
-            modeloRun.traverse(n => { if(n.isMesh) n.castShadow = true; });
-            modeloRun.visible = false; // Oculto al inicio
-            escena.add(modeloRun);
-            mezcladorRun = new THREE.AnimationMixer(modeloRun);
-            mezcladorRun.clipAction(gltf.animations[0]).play();
-        });
+        // CARGAMOS TUS ARCHIVOS FBX EXACTOS
+        cargarModeloFBX('./Rifle Idle.fbx', 'idle');
+        cargarModeloFBX('./correr.fbx', 'run');
 
-        // --- CONTROLES ---
+        // --- CONTROLES Y FÍSICAS ---
         const controles = new PointerLockControls(camara, document.body);
         document.getElementById('bloqueo').addEventListener('click', () => controles.lock());
         controles.addEventListener('lock', () => document.getElementById('bloqueo').style.display = 'none');
@@ -144,9 +160,11 @@
             }
         });
 
+        // --- BUCLE DE ANIMACIÓN ---
         function animar() {
             requestAnimationFrame(animar);
             const delta = reloj.getDelta();
+            
             if(mezcladorIdle) mezcladorIdle.update(delta);
             if(mezcladorRun) mezcladorRun.update(delta);
 
@@ -163,19 +181,16 @@
                 if(!enSuelo) velY -= 0.015;
                 if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; }
 
-                // Lógica de cambio de mono (Hitbut de animación)
                 if(modeloIdle && modeloRun) {
                     const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
-                    const offset = new THREE.Vector3(0.7, -1.6, -2.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y);
+                    const offset = new THREE.Vector3(0.5, -1.6, -2.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y);
                     const finalPos = camara.position.clone().add(offset);
 
-                    // Posicionar ambos
                     modeloIdle.position.copy(finalPos);
                     modeloIdle.rotation.y = euler.y + Math.PI;
                     modeloRun.position.copy(finalPos);
                     modeloRun.rotation.y = euler.y + Math.PI;
 
-                    // Intercambiar visibilidad
                     if(moviendose && enSuelo) {
                         modeloIdle.visible = false;
                         modeloRun.visible = true;
@@ -184,7 +199,6 @@
                         modeloRun.visible = false;
                     }
 
-                    // Colisión
                     for(let t of enemigos) {
                         const dist = modeloIdle.position.distanceTo(new THREE.Vector3(t.position.x, modeloIdle.position.y, t.position.z));
                         if(dist < t.radioH) {
