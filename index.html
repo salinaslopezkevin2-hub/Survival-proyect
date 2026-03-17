@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus FPS - Versión Optimizada</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        #bloqueo {
+            position: absolute; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; cursor: pointer; z-index: 10;
+        }
+        #mira {
+            position: absolute; top: 50%; left: 50%;
+            width: 10px; height: 10px; border: 2px solid #00ff00;
+            border-radius: 50%; transform: translate(-50%, -50%);
+            z-index: 5; pointer-events: none; mix-blend-mode: difference;
+        }
+        h1 { font-size: 3rem; margin: 0; color: #ff3333; text-transform: uppercase; }
+        p { font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div id="bloqueo">
+        <h1>NEXUS FPS</h1>
+        <p>Haz clic para jugar</p>
+        <p style="font-size: 0.9rem; color: #aaa;">(WASD: Mover | Espacio: Saltar | Clic: Disparar)</p>
+    </div>
+    <div id="mira"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'this-is-not-needed-here-redundant-but-for-context'; 
+        import * as THREE_LIB from 'three';
+        const THREE = THREE_LIB;
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // --- 1. CONFIGURACIÓN ORIGINAL ---
+        const escena = new THREE.Scene();
+        escena.background = new THREE.Color(0x87ceeb); 
+        escena.fog = new THREE.Fog(0x87ceeb, 0, 50);
+
+        const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderizador = new THREE.WebGLRenderer({ antialias: true });
+        renderizador.setSize(window.innerWidth, window.innerHeight);
+        renderizador.shadowMap.enabled = true;
+        renderizador.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderizador.domElement);
+
+        // --- 2. ILUMINACIÓN ---
+        const luzHemisferio = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        luzHemisferio.position.set(0, 20, 0);
+        escena.add(luzHemisferio);
+
+        const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.8);
+        luzDireccional.position.set(20, 30, 10);
+        luzDireccional.castShadow = true;
+        escena.add(luzDireccional);
+
+        // --- 3. TEXTURAS Y MUNDO (RESTAURADAS) ---
+        const cargadorTexturas = new THREE.TextureLoader();
+        const texturaPiso = cargadorTexturas.load('https://cdn.polyhaven.com/asset_img/primary/rocky_terrain_02.png?height=760&quality=95');
+        texturaPiso.wrapS = texturaPiso.wrapT = THREE.RepeatWrapping;
+        texturaPiso.repeat.set(20, 20); 
+
+        const texturaTronco = cargadorTexturas.load('https://cdn.polyhaven.com/asset_img/primary/bark_willow_02.png?height=760&quality=95');
+        texturaTronco.wrapS = texturaTronco.wrapT = THREE.RepeatWrapping;
+        texturaTronco.repeat.set(2, 3); 
+
+        const materialPiso = new THREE.MeshStandardMaterial({ map: texturaPiso, roughness: 0.9 });
+        const piso = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), materialPiso);
+        piso.rotation.x = -Math.PI / 2;
+        piso.receiveShadow = true;
+        escena.add(piso);
+
+        const enemigos = []; 
+        const geometriaTronco = new THREE.CylinderGeometry(1, 1, 4, 16);
+        const materialTronco = new THREE.MeshStandardMaterial({ map: texturaTronco, roughness: 1.0 });
+
+        for(let i=0; i<25; i++) {
+            const tronco = new THREE.Mesh(geometriaTronco, materialTronco);
+            const escala = Math.random() * 1.5 + 0.5;
+            tronco.scale.set(escala, escala, escala);
+            tronco.position.set((Math.random() - 0.5) * 80, 2 * escala, (Math.random() - 0.5) * 80);
+            tronco.rotation.y = Math.random() * Math.PI; 
+            tronco.castShadow = true;
+            tronco.receiveShadow = true;
+            tronco.radioColision = 1 * escala; 
+            escena.add(tronco);
+            enemigos.push(tronco); 
+        }
+
+        // --- 4. PERSONAJE ---
+        const reloj = new THREE.Clock();
+        let mezcladorAnimaciones;
+        const cargadorModelos = new GLTFLoader();
+        let modeloJugador = null; 
+
+        cargadorModelos.load('./idle.glb', (gltf) => {
+            modeloJugador = gltf.scene;
+            modeloJugador.scale.set(0.01, 0.01, 0.01);
+            modeloJugador.traverse((hijo) => {
+                if (hijo.isMesh) {
+                    hijo.castShadow = true;
+                    hijo.receiveShadow = true;
+                    hijo.material = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.7 });
+                    hijo.frustumCulled = false; 
+                }
+            });
+            escena.add(modeloJugador);
+            if(gltf.animations.length > 0) {
+                mezcladorAnimaciones = new THREE.AnimationMixer(modeloJugador);
+                mezcladorAnimaciones.clipAction(gltf.animations[0]).play(); 
+            }
+        });
+
+        // --- 5. CONTROLES Y FÍSICAS ---
+        const controles = new PointerLockControls(camara, document.body);
+        const pantallaBloqueo = document.getElementById('bloqueo');
+        pantallaBloqueo.addEventListener('click', () => { controles.lock(); });
+        controles.addEventListener('lock', () => { pantallaBloqueo.style.display = 'none'; });
+        controles.addEventListener('unlock', () => { pantallaBloqueo.style.display = 'flex'; });
+
+        const teclas = { w: false, a: false, s: false, d: false };
+        let velocidadY = 0;
+        const velocidadMovimiento = 0.15;
+        const gravedad = 0.015;
+        let enElPiso = true;
+        const alturaJugador = 1.6;
+        let tiempoCaminando = 0;
+
+        document.addEventListener('keydown', (e) => {
+            if(e.code === 'KeyW') teclas.w = true;
+            if(e.code === 'KeyA') teclas.a = true;
+            if(e.code === 'KeyS') teclas.s = true;
+            if(e.code === 'KeyD') teclas.d = true;
+            if(e.code === 'Space' && enElPiso) { velocidadY = 0.3; enElPiso = false; } 
+        });
+        document.addEventListener('keyup', (e) => {
+            if(e.code === 'KeyW') teclas.w = false;
+            if(e.code === 'KeyA') teclas.a = false;
+            if(e.code === 'KeyS') teclas.s = false;
+            if(e.code === 'KeyD') teclas.d = false;
+        });
+
+        // --- 6. SISTEMA DE DISPARO ---
+        const raycasterDisparo = new THREE.Raycaster();
+        window.addEventListener('mousedown', () => {
+            if(!controles.isLocked) return;
+            raycasterDisparo.setFromCamera(new THREE.Vector2(0, 0), camara);
+            const impactos = raycasterDisparo.intersectObjects(enemigos);
+            if(impactos.length > 0) {
+                const objetivo = impactos[0].object;
+                escena.remove(objetivo);
+                const index = enemigos.indexOf(objetivo);
+                if (index > -1) enemigos.splice(index, 1);
+            }
+        });
+
+        // --- 7. BUCLE DE ANIMACIÓN ---
+        function animar() {
+            requestAnimationFrame(animar);
+            const delta = reloj.getDelta();
+            if (mezcladorAnimaciones) mezcladorAnimaciones.update(delta);
+
+            if (controles.isLocked) {
+                const posAnterior = camara.position.clone();
+
+                if (teclas.w) controles.moveForward(velocidadMovimiento);
+                if (teclas.s) controles.moveForward(-velocidadMovimiento);
+                if (teclas.a) controles.moveRight(-velocidadMovimiento);
+                if (teclas.d) controles.moveRight(velocidadMovimiento);
+
+                // Gravedad
+                camara.position.y += velocidadY;
+                if (!enElPiso) { velocidadY -= gravedad; }
+                if (camara.position.y <= alturaJugador) {
+                    camara.position.y = alturaJugador;
+                    velocidadY = 0;
+                    enElPiso = true;
+                }
+
+                if (modeloJugador) {
+                    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                    euler.setFromQuaternion(camara.quaternion);
+                    
+                    // Posición Free Fire
+                    const offset = new THREE.Vector3(0.7, -1.6, -2.5);
+                    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), euler.y); 
+                    modeloJugador.position.copy(camara.position).add(offset);
+                    modeloJugador.rotation.y = euler.y + Math.PI;
+
+                    // COLISIÓN DEL PERSONAJE (Basada en su posición real)
+                    let choco = false;
+                    for(let tronco of enemigos) {
+                        const dist = modeloJugador.position.distanceTo(new THREE.Vector3(tronco.position.x, modeloJugador.position.y, tronco.position.z));
+                        if (dist < tronco.radioColision + 0.3) {
+                            choco = true;
+                            break;
+                        }
+                    }
+
+                    if (choco) {
+                        camara.position.x = posAnterior.x;
+                        camara.position.z = posAnterior.z;
+                    }
+
+                    // Balanceo
+                    if (teclas.w || teclas.s || teclas.a || teclas.d) {
+                        tiempoCaminando += 0.15;
+                        modeloJugador.position.y += Math.sin(tiempoCaminando) * 0.05;
+                        modeloJugador.rotation.z = Math.sin(tiempoCaminando / 2) * 0.03;
+                    }
+                }
+            } 
+            renderizador.render(escena, camara);
+        }
+
+        window.addEventListener('resize', () => {
+            camara.aspect = window.innerWidth / window.innerHeight;
+            camara.updateProjectionMatrix();
+            renderizador.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animar(); 
+    </script>
+</body>
+</html>
