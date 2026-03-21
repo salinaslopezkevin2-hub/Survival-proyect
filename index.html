@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - Bosque de Supervivencia (v6)</title>
+    <title>Nexus FPS - Bosque de Supervivencia (v8)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         
@@ -81,10 +81,10 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-        // --- ENTORNO: BOSQUE OSCURO Y NIEBLA ---
+        // --- ENTORNO ---
         const escena = new THREE.Scene();
-        escena.background = new THREE.Color(0x1a1a24); // Cielo oscuro
-        escena.fog = new THREE.FogExp2(0x1a1a24, 0.03); // Niebla tétrica
+        escena.background = new THREE.Color(0x1a1a24); 
+        escena.fog = new THREE.FogExp2(0x1a1a24, 0.03); 
 
         const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderizador = new THREE.WebGLRenderer({ antialias: true });
@@ -92,29 +92,27 @@
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        escena.add(new THREE.HemisphereLight(0x444455, 0x111122, 0.6)); // Luz de luna tenue
+        escena.add(new THREE.HemisphereLight(0x444455, 0x111122, 0.6)); 
         const luna = new THREE.DirectionalLight(0x8888ff, 0.4); 
         luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
 
-        // Piso de pasto oscuro
         const loaderTex = new THREE.TextureLoader();
         const texPiso = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/aerial_grass_rock.png?height=760&quality=95');
         texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping; texPiso.repeat.set(30, 30);
         const piso = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ map: texPiso, color: 0x555555 }));
         piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; escena.add(piso);
 
-        // --- GENERADOR DE BOSQUE Y AUTOS ---
+        // --- GENERADOR DE BOSQUE ---
         function generarEntorno() {
             const geoTronco = new THREE.CylinderGeometry(0.6, 0.8, 4, 8);
-            const matTronco = new THREE.MeshStandardMaterial({color: 0x2d1a11}); // Madera oscura
+            const matTronco = new THREE.MeshStandardMaterial({color: 0x2d1a11}); 
             const geoHojas = new THREE.ConeGeometry(3, 7, 8);
-            const matHojas = new THREE.MeshStandardMaterial({color: 0x1a331a}); // Verde pino oscuro
+            const matHojas = new THREE.MeshStandardMaterial({color: 0x1a331a}); 
 
-            // Crear 100 Árboles
             for(let i=0; i<100; i++) {
                 const x = (Math.random() - 0.5) * 140;
                 const z = (Math.random() - 0.5) * 140;
-                if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; // Despejar el centro para nacer
+                if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; 
 
                 const tronco = new THREE.Mesh(geoTronco, matTronco);
                 tronco.position.set(x, 2, z); tronco.castShadow = true; tronco.receiveShadow = true;
@@ -123,7 +121,6 @@
                 escena.add(tronco); escena.add(hojas);
             }
 
-            // Crear 15 Autos oxidados abandonados
             const coloresOxido = [0x5c2b2b, 0x3d4045, 0x4a3a2a];
             const geoAuto = new THREE.BoxGeometry(2.5, 1.2, 5);
             const geoTecho = new THREE.BoxGeometry(2, 0.8, 2.5);
@@ -131,7 +128,7 @@
             for(let i=0; i<15; i++) {
                 const x = (Math.random() - 0.5) * 120;
                 const z = (Math.random() - 0.5) * 120;
-                if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; // Despejar el centro
+                if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; 
 
                 const matC = new THREE.MeshStandardMaterial({color: coloresOxido[Math.floor(Math.random()*coloresOxido.length)]});
                 const auto = new THREE.Mesh(geoAuto, matC);
@@ -144,7 +141,7 @@
                 escena.add(auto);
             }
         }
-        generarEntorno(); // Construir el mapa al instante
+        generarEntorno(); 
 
         // --- SISTEMA DEL JUEGO ---
         let jugador = { vida: 100, maxVida: 100 };
@@ -158,21 +155,20 @@
 
         const controles = new PointerLockControls(camara, document.body);
         
-        // INTERFAZ
-        document.getElementById('btnIniciar').addEventListener('click', () => {
-            document.getElementById('menuInicio').style.display = 'none';
-            document.getElementById('mira').style.display = 'block';
-            document.getElementById('hud').style.display = 'block';
-            document.getElementById('pantallaRoja').style.display = 'block';
+        btnIniciar.addEventListener('click', () => {
+            menuInicio.style.display = 'none';
+            mira.style.display = 'block';
+            hud.style.display = 'block';
+            pantallaRoja.style.display = 'block';
             controles.lock(); juegoEmpezado = true;
         });
 
-        document.getElementById('btnContinuar').addEventListener('click', () => { if(!gameOver) controles.lock(); });
-        document.getElementById('btnSalir').addEventListener('click', () => { location.reload(); });
+        btnContinuar.addEventListener('click', () => { if(!gameOver) controles.lock(); });
+        btnSalir.addEventListener('click', () => { location.reload(); });
 
-        controles.addEventListener('lock', () => document.getElementById('bloqueo').style.display = 'none');
+        controles.addEventListener('lock', () => bloqueo.style.display = 'none');
         controles.addEventListener('unlock', () => { 
-            if(juegoEmpezado) document.getElementById('bloqueo').style.display = 'flex'; 
+            if(juegoEmpezado) bloqueo.style.display = 'flex'; 
         });
 
         const teclas = { w:false, a:false, s:false, d:false }; let velY = 0, enSuelo = true;
@@ -184,16 +180,16 @@
         document.addEventListener('keyup', e => { if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false; });
 
         function actualizarHUD() {
-            document.getElementById('uiVida').innerText = Math.max(0, Math.floor(jugador.vida));
-            document.getElementById('uiHorda').innerText = sistemaHordas.nivel;
-            document.getElementById('uiZombies').innerText = sistemaHordas.zombiesRestantes;
+            uiVida.innerText = Math.max(0, Math.floor(jugador.vida));
+            uiHorda.innerText = sistemaHordas.nivel;
+            uiZombies.innerText = sistemaHordas.zombiesRestantes;
             
             if(jugador.vida <= 0 && !gameOver) {
                 gameOver = true; controles.unlock();
-                document.getElementById('textoPausa').innerText = "¡FUISTE DEVORADO!";
-                document.getElementById('textoPausa').style.color = "red";
-                document.getElementById('btnContinuar').style.display = "none";
-                document.getElementById('bloqueo').style.display = 'flex';
+                textoPausa.innerText = "¡FUISTE DEVORADO!";
+                textoPausa.style.color = "red";
+                btnContinuar.style.display = "none";
+                bloqueo.style.display = 'flex';
             }
         }
 
@@ -232,9 +228,12 @@
 
         async function iniciarCarga() {
             try {
-                const estadoCarga = document.getElementById('estadoCarga');
                 modeloIdle = await cargarFBX('./Rifle Idle.fbx'); modeloRun = await cargarFBX('./correr.fbx');
-                [modeloIdle, modeloRun].forEach(m => { m.scale.set(0.01, 0.01, 0.01); escena.add(m); });
+                
+                // --- SOLUCIÓN: REDUCIMOS EL TAMAÑO FÍSICO DEL "MONO" ---
+                // Antes estaba en 0.01, lo bajamos a 0.008 para que coincida con los zombies.
+                [modeloIdle, modeloRun].forEach(m => { m.scale.set(0.008, 0.008, 0.008); escena.add(m); });
+                
                 modeloRun.visible = false;
                 
                 if(modeloIdle.animations.length) { mezcladorIdle = new THREE.AnimationMixer(modeloIdle); mezcladorIdle.clipAction(modeloIdle.animations[0]).play(); }
@@ -249,30 +248,22 @@
                 for(let i=0; i<nombresZombies.length; i++) {
                     estadoCarga.innerText = `Cargando Zombie ${i+1} de 3...`;
                     const w = await cargarFBX(nombresZombies[i].walk); const a = await cargarFBX(nombresZombies[i].attack); const d = await cargarFBX(nombresZombies[i].death);
-                    // AHORA TIENEN EXACTAMENTE TU ALTURA (Escala 0.009 = ~1.6m)
-                    w.scale.set(0.009, 0.009, 0.009);
+                    w.scale.set(0.008, 0.008, 0.008); 
                     datosZombiesGrupales.push({ modeloBase: w, animaciones: { walk: w.animations[0], attack: a.animations[0], death: d.animations[0] } });
                 }
 
-                estadoCarga.innerText = "Generando Horda 1...";
-                for(let i=0; i<sistemaHordas.zombiesTotales; i++) {
-                    crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]);
-                }
-
                 estadoCarga.innerText = "¡PREPÁRATE PARA SOBREVIVIR!";
-                document.getElementById('btnIniciar').disabled = false;
+                btnIniciar.disabled = false;
                 juegoListo = true;
-            } catch (error) { console.error(error); document.getElementById('estadoCarga').innerText = "ERROR AL CARGAR"; }
+            } catch (error) { console.error(error); estadoCarga.innerText = "ERROR AL CARGAR"; }
         }
         iniciarCarga();
 
-        // --- DISPARO ---
         const ray = new THREE.Raycaster();
         const matDisparo = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2, transparent: true, opacity: 1 });
         const puntoDisparo = new THREE.Vector3();
 
         window.addEventListener('mousedown', () => {
-            // SI ESTÁ EN PAUSA, NO PUEDES DISPARAR
             if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver) return;
 
             ray.setFromCamera(new THREE.Vector2(0, 0), camara);
@@ -322,12 +313,10 @@
             }
         });
 
-        // --- BUCLE DE ANIMACIÓN (CON PAUSA REAL) ---
         function animar() {
             requestAnimationFrame(animar);
             const delta = reloj.getDelta();
             
-            // EL TIEMPO SOLO AVANZA SI EL JUEGO NO ESTÁ EN PAUSA (!controles.isLocked detiene el juego)
             if(juegoEmpezado && !gameOver && controles.isLocked) {
                 
                 if(mezcladorIdle) mezcladorIdle.update(delta);
@@ -343,14 +332,14 @@
 
                 camara.position.y += velY;
                 if(!enSuelo) velY -= 0.015;
-                if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; }
+                
+                // Mantenemos la cámara a 1.4 de altura para una sensación humana.
+                if(camara.position.y <= 1.4) { camara.position.y = 1.4; velY = 0; enSuelo = true; }
 
-                // --- POSICIÓN DE ARMA: PRIMERA PERSONA REALISTA ---
-                // Acerqué el arma a la cámara y la puse pegada a la derecha
                 if(modeloIdle && modeloRun) {
                     const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
-                    // Offset nuevo: (0.3 a la derecha, -0.4 abajo, -0.8 hacia adelante)
-                    const finalPos = camara.position.clone().add(new THREE.Vector3(0.3, -0.4, -0.8).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
+                    // Mantenemos la posición del arma ajustada para que se vea bien en pantalla.
+                    const finalPos = camara.position.clone().add(new THREE.Vector3(0.35, -0.5, -0.8).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
                     
                     modeloIdle.position.copy(finalPos); modeloIdle.rotation.y = euler.y + Math.PI;
                     modeloRun.position.copy(finalPos); modeloRun.rotation.y = euler.y + Math.PI;
@@ -384,9 +373,8 @@
                     }
                 }
                 
-                document.getElementById('pantallaRoja').style.opacity = recibiendoDano ? "0.3" : "0";
+                pantallaRoja.style.opacity = recibiendoDano ? "0.3" : "0";
             }
-            // El render siempre se ejecuta para que la pantalla no se quede en negro, pero no se actualiza la posición de nada
             renderizador.render(escena, camara);
         }
         animar();
