@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - v16 (Colisiones, Texturas y Recarga)</title>
+    <title>Nexus FPS - v17 (Parkour, Muros y Texturas Mejoradas)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         #menuInicio {
@@ -34,16 +34,16 @@
             position: absolute; bottom: 15px; left: 15px; color: #00ff00; font-size: 1.5rem; display: none;
             text-shadow: 2px 2px #000; font-weight: bold; pointer-events: none;
         }
-        /* NUEVO: Pantalla roja solo en las orillas (Vignette radial) */
         #pantallaRoja {
             position: absolute; width: 100%; height: 100%;
             background: radial-gradient(circle, transparent 60%, rgba(255, 0, 0, 0.7) 100%);
             opacity: 0; pointer-events: none; z-index: 5; transition: opacity 0.2s; display: none;
         }
+        /* Texto de recarga reubicado y más pequeño */
         #mensajeRecarga {
-            position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%);
-            color: #ffff00; font-size: 2rem; font-weight: bold; display: none; text-shadow: 0 0 10px #000; z-index: 15;
-            pointer-events: none;
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            color: #ffff00; font-size: 1.2rem; font-weight: bold; display: none; text-shadow: 2px 2px 5px #000; z-index: 15;
+            pointer-events: none; text-align: center; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 5px;
         }
     </style>
 </head>
@@ -66,7 +66,7 @@
         BALAS: <span id="uiBalas" style="color: #ffff00;">30</span>/30 | 
         HORDA: <span id="uiHorda">1</span> | 
         ZOMBIES: <span id="uiZombies">15</span>
-        <br><span style="font-size: 0.8rem;">[WASD] Mover | [ESPACIO] Saltar | [F] Linterna | [R] Recargar | [CLICK] Disparar Láser</span>
+        <br><span style="font-size: 0.8rem;">[WASD] Mover | [ESPACIO] Saltar | [F] Linterna | [R] Recargar | [CLICK] Disparar</span>
     </div>
 
     <script type="importmap">
@@ -114,55 +114,61 @@
         const piso = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ map: texPiso, color: 0x444444 }));
         piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; escena.add(piso);
 
-        // --- TEXTURAS Y COLISIONES PARA EL ENTORNO ---
-        const cajasColision = []; // Aquí guardaremos los obstáculos sólidos
+        const cajasColision = []; 
 
         function generarEntorno() {
-            // Texturas
             const texTronco = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/bark_brown_02.png?height=512&quality=80');
             texTronco.wrapS = texTronco.wrapT = THREE.RepeatWrapping; texTronco.repeat.set(1, 3);
             const texHojas = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/leaves_forest_ground.png?height=512&quality=80');
             texHojas.wrapS = texHojas.wrapT = THREE.RepeatWrapping; texHojas.repeat.set(4, 4);
-            const texMetal = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/rusty_metal_02.png?height=512&quality=80');
-            texMetal.wrapS = texMetal.wrapT = THREE.RepeatWrapping; texMetal.repeat.set(2, 2);
+            const texMetalCarro = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/peeling_painted_metal.png?height=512&quality=80');
+            texMetalCarro.wrapS = texMetalCarro.wrapT = THREE.RepeatWrapping; texMetalCarro.repeat.set(2, 2);
+            const texMuro = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/castle_brick_broken_06.png?height=512&quality=80');
+            texMuro.wrapS = texMuro.wrapT = THREE.RepeatWrapping; texMuro.repeat.set(10, 2);
 
+            // Generar Árboles
             const geoTronco = new THREE.CylinderGeometry(0.6, 0.8, 4, 8);
             const matTronco = new THREE.MeshStandardMaterial({map: texTronco, color: 0x666666}); 
             const geoHojas = new THREE.ConeGeometry(3, 7, 8);
             const matHojas = new THREE.MeshStandardMaterial({map: texHojas, color: 0x334433}); 
 
             for(let i=0; i<100; i++) {
-                const x = (Math.random() - 0.5) * 140; const z = (Math.random() - 0.5) * 140;
+                const x = (Math.random() - 0.5) * 130; const z = (Math.random() - 0.5) * 130;
                 if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; 
                 const tronco = new THREE.Mesh(geoTronco, matTronco); tronco.position.set(x, 2, z); escena.add(tronco);
                 const hojas = new THREE.Mesh(geoHojas, matHojas); hojas.position.set(x, 7.5, z); escena.add(hojas);
-                
-                // Añadir colisión al tronco (reducimos un poco la caja para que no te atores tan fácil)
-                const cajaTronco = new THREE.Box3().setFromObject(tronco);
-                cajasColision.push(cajaTronco);
+                cajasColision.push(new THREE.Box3().setFromObject(tronco));
             }
 
+            // Generar Autos Sólidos
             const geoAuto = new THREE.BoxGeometry(2.5, 1.2, 5);
+            const coloresAutos = [0xaa5555, 0x5555aa, 0xaaaa55, 0x777777, 0x55aa55];
             for(let i=0; i<15; i++) {
                 const x = (Math.random() - 0.5) * 120; const z = (Math.random() - 0.5) * 120;
                 if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; 
-                const auto = new THREE.Mesh(geoAuto, new THREE.MeshStandardMaterial({map: texMetal, color: 0xaa5555})); 
+                const matAuto = new THREE.MeshStandardMaterial({map: texMetalCarro, color: coloresAutos[i % coloresAutos.length]});
+                const auto = new THREE.Mesh(geoAuto, matAuto); 
                 auto.position.set(x, 0.6, z); auto.rotation.y = Math.random() * Math.PI; escena.add(auto);
-                
-                // Añadir colisión al auto
-                const cajaAuto = new THREE.Box3().setFromObject(auto);
-                cajasColision.push(cajaAuto);
+                cajasColision.push(new THREE.Box3().setFromObject(auto));
             }
+
+            // Crear Muros de los límites
+            const geoMuro = new THREE.BoxGeometry(140, 10, 2);
+            const matMuro = new THREE.MeshStandardMaterial({map: texMuro, color: 0x555555});
+            
+            const muroNorte = new THREE.Mesh(geoMuro, matMuro); muroNorte.position.set(0, 5, -70); escena.add(muroNorte);
+            const muroSur = new THREE.Mesh(geoMuro, matMuro); muroSur.position.set(0, 5, 70); escena.add(muroSur);
+            const muroEste = new THREE.Mesh(geoMuro, matMuro); muroEste.position.set(70, 5, 0); muroEste.rotation.y = Math.PI / 2; escena.add(muroEste);
+            const muroOeste = new THREE.Mesh(geoMuro, matMuro); muroOeste.position.set(-70, 5, 0); muroOeste.rotation.y = Math.PI / 2; escena.add(muroOeste);
         }
         generarEntorno(); 
 
         let jugador = { vida: 100, maxVida: 100 };
-        let municion = { actual: 30, maxima: 30, recargando: false }; // SISTEMA DE BALAS
+        let municion = { actual: 30, maxima: 30, recargando: false }; 
         let sistemaHordas = { nivel: 1, zombiesRestantes: 15, zombiesTotales: 15, multiplicadorVidaZombie: 1, velocidadZombie: 0.04 };
         let datosZombiesGrupales = [];
 
         let modeloTP; let mixerTP; let accionesTP = {}; 
-        const AJUSTE_ALTURA_Y = 0; 
 
         let enemigos = [];
         const reloj = new THREE.Clock(); const fbxLoader = new FBXLoader();
@@ -207,16 +213,17 @@
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
             if(e.code === 'KeyF') { linternaEncendida = !linternaEncendida; linterna.intensity = linternaEncendida ? 30 : 0; }
             
-            // FUNCIÓN DE RECARGAR
             if(e.code === 'KeyR' && municion.actual < municion.maxima && !municion.recargando) {
                 municion.recargando = true;
+                mensajeRecarga.innerText = "RECARGANDO...";
+                mensajeRecarga.style.color = "#ffff00";
                 mensajeRecarga.style.display = 'block';
                 setTimeout(() => {
                     municion.actual = municion.maxima;
                     municion.recargando = false;
                     mensajeRecarga.style.display = 'none';
                     actualizarHUD();
-                }, 1500); // Tarda 1.5 segundos en recargar
+                }, 1500); 
             }
         });
         document.addEventListener('keyup', e => { if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false; });
@@ -295,18 +302,15 @@
         window.addEventListener('mousedown', () => {
             if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver) return;
             
-            // VERIFICAR BALAS
-            if(municion.recargando) return; // Si está recargando, no dispara
+            if(municion.recargando) return; 
             if(municion.actual <= 0) {
-                // Hacer sonido de click vacío o forzar recarga (opcional)
-                mensajeRecarga.innerText = "PRESIONA [R] PARA RECARGAR";
+                mensajeRecarga.innerText = "[ PRESIONA 'R' PARA RECARGAR ]";
                 mensajeRecarga.style.color = "red";
                 mensajeRecarga.style.display = "block";
                 setTimeout(() => { if(!municion.recargando) mensajeRecarga.style.display = "none"; }, 1000);
                 return;
             }
 
-            // Gasto de bala
             municion.actual--;
             actualizarHUD();
             
@@ -356,33 +360,59 @@
                 if(mixerTP) mixerTP.update(delta);
 
                 const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
-                
-                // GUARDAR POSICIÓN ANTES DE MOVERSE PARA LAS COLISIONES
                 const posAnterior = camaraControles.position.clone();
                 
                 if(teclas.w) controles.moveForward(0.15); if(teclas.s) controles.moveForward(-0.15);
                 if(teclas.a) controles.moveRight(-0.12); if(teclas.d) controles.moveRight(0.12);
                 
-                // LÓGICA DE COLISIONES SÓLIDAS
-                const centroJugador = camaraControles.position.clone();
-                centroJugador.y -= 0.8; // El centro de la hitbox está en medio del cuerpo, no en la cabeza
-                const hitboxJugador = new THREE.Box3().setFromCenterAndSize(centroJugador, new THREE.Vector3(0.6, 1.6, 0.6));
-                
-                let choco = false;
+                // LÍMITES DEL MAPA ESTRICTOS
+                if(camaraControles.position.x > 68) camaraControles.position.x = 68;
+                if(camaraControles.position.x < -68) camaraControles.position.x = -68;
+                if(camaraControles.position.z > 68) camaraControles.position.z = 68;
+                if(camaraControles.position.z < -68) camaraControles.position.z = -68;
+
+                // --- SISTEMA DE PARKOUR Y PLATAFORMAS ---
+                const piesYActual = camaraControles.position.y - 1.6;
+                let alturaSueloLocal = 0; 
+                let chocoPared = false;
+                const radioJugador = 0.4;
+
                 for(let caja of cajasColision) {
-                    if(hitboxJugador.intersectsBox(caja)) { choco = true; break; }
-                }
-                
-                // Si chocó con algo, lo devolvemos a la posición donde estaba antes de apretar la tecla
-                if(choco) {
-                    camaraControles.position.copy(posAnterior);
+                    const minX = caja.min.x - radioJugador; const maxX = caja.max.x + radioJugador;
+                    const minZ = caja.min.z - radioJugador; const maxZ = caja.max.z + radioJugador;
+
+                    if(camaraControles.position.x > minX && camaraControles.position.x < maxX &&
+                       camaraControles.position.z > minZ && camaraControles.position.z < maxZ) {
+                        
+                        // Si estamos lo suficientemente alto como para pisarlo
+                        if(piesYActual >= caja.max.y - 0.2) {
+                            alturaSueloLocal = Math.max(alturaSueloLocal, caja.max.y);
+                        } else {
+                            chocoPared = true; // Si no, es una pared y chocamos
+                        }
+                    }
                 }
 
-                camaraControles.position.y += velY; if(!enSuelo) velY -= 0.015;
-                if(camaraControles.position.y <= 1.6) { camaraControles.position.y = 1.6; velY = 0; enSuelo = true; } 
+                // Deshacer movimiento si chocamos con una pared
+                if(chocoPared) {
+                    camaraControles.position.x = posAnterior.x;
+                    camaraControles.position.z = posAnterior.z;
+                }
+
+                // Aplicar gravedad y salto
+                camaraControles.position.y += velY; 
+                velY -= 0.015; 
+
+                // Aterrizaje dinámico (piso o techo de autos)
+                if(camaraControles.position.y - 1.6 <= alturaSueloLocal) { 
+                    camaraControles.position.y = alturaSueloLocal + 1.6; 
+                    velY = 0; 
+                    enSuelo = true; 
+                } else {
+                    enSuelo = false;
+                }
 
                 const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camaraControles.quaternion);
-
                 camaraRender.position.copy(camaraControles.position);
                 camaraRender.quaternion.copy(camaraControles.quaternion);
 
@@ -391,19 +421,26 @@
                 
                 if(modeloTP) {
                     const posPies = camaraControles.position.clone(); 
-                    posPies.y = camaraControles.position.y - 1.6 + AJUSTE_ALTURA_Y; 
+                    posPies.y = camaraControles.position.y - 1.6; 
                     modeloTP.position.copy(posPies);
                     modeloTP.rotation.y = euler.y + Math.PI; 
                     
                     if(moviendose && enSuelo) cambiarAnimacionTP('run'); else cambiarAnimacionTP('idle');
                 }
 
-                const logicalPlayerPos = camaraControles.position.clone(); logicalPlayerPos.y = 0; 
+                // Lógica de zombies
+                const logicalPlayerPos = camaraControles.position.clone(); 
+                logicalPlayerPos.y = 0; // Zombies siempre se quedan a nivel del piso
                 let recibiendoDano = false;
+                
                 for(let z of enemigos) {
                     z.mixer.update(delta); if(z.estado === 'dead') continue;
                     z.mesh.lookAt(logicalPlayerPos);
-                    if(z.mesh.position.distanceTo(logicalPlayerPos) > 2.5) { 
+                    
+                    // Calculamos la distancia 3D real para que si estás arriba de un auto, el zombie tenga que acercarse más
+                    const dist3D = z.mesh.position.distanceTo(camaraControles.position);
+
+                    if(dist3D > 2.5) { 
                         z.mesh.translateZ(sistemaHordas.velocidadZombie); z.cambiarEstado('walk'); 
                     } else { 
                         z.cambiarEstado('attack'); jugador.vida -= 0.2; recibiendoDano = true; actualizarHUD(); 
@@ -411,10 +448,8 @@
                 }
                 pantallaRoja.style.opacity = recibiendoDano ? "1" : "0";
                 
-                // Restablecer mensaje si hay balas después de vaciar el cargador y no recargar
-                if(municion.actual > 0 && mensajeRecarga.innerText !== "RECARGANDO...") {
-                    mensajeRecarga.innerText = "RECARGANDO...";
-                    mensajeRecarga.style.color = "#ffff00";
+                if(municion.actual > 0 && mensajeRecarga.innerText === "[ PRESIONA 'R' PARA RECARGAR ]") {
+                    mensajeRecarga.style.display = "none";
                 }
             }
             
