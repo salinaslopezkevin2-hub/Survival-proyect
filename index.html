@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Survival FPS </title>
+    <title>Nexus FPS - v20 (Autos GLB Optimizados)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         #menuInicio {
@@ -39,7 +39,6 @@
             background: radial-gradient(circle, transparent 60%, rgba(255, 0, 0, 0.7) 100%);
             opacity: 0; pointer-events: none; z-index: 5; transition: opacity 0.2s; display: none;
         }
-        /* Texto de recarga reubicado y más pequeño */
         #mensajeRecarga {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             color: #ffff00; font-size: 1.2rem; font-weight: bold; display: none; text-shadow: 2px 2px 5px #000; z-index: 15;
@@ -49,7 +48,7 @@
 </head>
 <body>
     <div id="menuInicio">
-        <h1 id="tituloMenu"> PROYECT SURVIVAL: FPS </h1>
+        <h1 id="tituloMenu">NEXUS FPS: SURVIVAL</h1>
         <p id="estadoCarga" style="color: #00ff00;">Cargando archivos del juego...</p>
         <button id="btnIniciar" class="botonMenu" disabled>ENTRAR AL BOSQUE</button>
     </div>
@@ -83,8 +82,10 @@
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
+        // 1. CONFIGURACIÓN BÁSICA DE LA ESCENA
         const escena = new THREE.Scene();
         escena.background = new THREE.Color(0x0a0a10); 
         escena.fog = new THREE.FogExp2(0x0a0a10, 0.04); 
@@ -98,6 +99,7 @@
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
+        // 2. LUCES
         escena.add(new THREE.HemisphereLight(0x333344, 0x111118, 0.3)); 
         const luna = new THREE.DirectionalLight(0x555588, 0.2); 
         luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
@@ -108,25 +110,33 @@
         camaraControles.add(linterna); camaraControles.add(linterna.target);
         let linternaEncendida = false;
 
+        // 3. CARGADORES Y COLISIONES
         const loaderTex = new THREE.TextureLoader();
+        const fbxLoader = new FBXLoader();
+        const gltfLoader = new GLTFLoader();
+        const cajasColision = []; 
+
+        // 4. CREACIÓN DEL ENTORNO (Suelo, Muros y Árboles)
         const texPiso = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/aerial_grass_rock.png?height=760&quality=95');
         texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping; texPiso.repeat.set(30, 30);
         const piso = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ map: texPiso, color: 0x444444 }));
         piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; escena.add(piso);
 
-        const cajasColision = []; 
+        const texMuro = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/castle_brick_broken_06.png?height=512&quality=80');
+        texMuro.wrapS = texMuro.wrapT = THREE.RepeatWrapping; texMuro.repeat.set(10, 2);
+        const geoMuro = new THREE.BoxGeometry(140, 10, 2);
+        const matMuro = new THREE.MeshStandardMaterial({map: texMuro, color: 0x555555});
+        const muroNorte = new THREE.Mesh(geoMuro, matMuro); muroNorte.position.set(0, 5, -70); escena.add(muroNorte);
+        const muroSur = new THREE.Mesh(geoMuro, matMuro); muroSur.position.set(0, 5, 70); escena.add(muroSur);
+        const muroEste = new THREE.Mesh(geoMuro, matMuro); muroEste.position.set(70, 5, 0); muroEste.rotation.y = Math.PI / 2; escena.add(muroEste);
+        const muroOeste = new THREE.Mesh(geoMuro, matMuro); muroOeste.position.set(-70, 5, 0); muroOeste.rotation.y = Math.PI / 2; escena.add(muroOeste);
 
-        function generarEntorno() {
+        function generarArboles() {
             const texTronco = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/bark_brown_02.png?height=512&quality=80');
             texTronco.wrapS = texTronco.wrapT = THREE.RepeatWrapping; texTronco.repeat.set(1, 3);
             const texHojas = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/leaves_forest_ground.png?height=512&quality=80');
             texHojas.wrapS = texHojas.wrapT = THREE.RepeatWrapping; texHojas.repeat.set(4, 4);
-            const texMetalCarro = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/peeling_painted_metal.png?height=512&quality=80');
-            texMetalCarro.wrapS = texMetalCarro.wrapT = THREE.RepeatWrapping; texMetalCarro.repeat.set(2, 2);
-            const texMuro = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/castle_brick_broken_06.png?height=512&quality=80');
-            texMuro.wrapS = texMuro.wrapT = THREE.RepeatWrapping; texMuro.repeat.set(10, 2);
 
-            // Generar Árboles
             const geoTronco = new THREE.CylinderGeometry(0.6, 0.8, 4, 8);
             const matTronco = new THREE.MeshStandardMaterial({map: texTronco, color: 0x666666}); 
             const geoHojas = new THREE.ConeGeometry(3, 7, 8);
@@ -137,41 +147,22 @@
                 if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; 
                 const tronco = new THREE.Mesh(geoTronco, matTronco); tronco.position.set(x, 2, z); escena.add(tronco);
                 const hojas = new THREE.Mesh(geoHojas, matHojas); hojas.position.set(x, 7.5, z); escena.add(hojas);
-                cajasColision.push(new THREE.Box3().setFromObject(tronco));
+                
+                const cajaTronco = new THREE.Box3().setFromObject(tronco);
+                cajasColision.push(cajaTronco);
             }
-
-            // Generar Autos Sólidos
-            const geoAuto = new THREE.BoxGeometry(2.5, 1.2, 5);
-            const coloresAutos = [0xaa5555, 0x5555aa, 0xaaaa55, 0x777777, 0x55aa55];
-            for(let i=0; i<15; i++) {
-                const x = (Math.random() - 0.5) * 120; const z = (Math.random() - 0.5) * 120;
-                if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; 
-                const matAuto = new THREE.MeshStandardMaterial({map: texMetalCarro, color: coloresAutos[i % coloresAutos.length]});
-                const auto = new THREE.Mesh(geoAuto, matAuto); 
-                auto.position.set(x, 0.6, z); auto.rotation.y = Math.random() * Math.PI; escena.add(auto);
-                cajasColision.push(new THREE.Box3().setFromObject(auto));
-            }
-
-            // Crear Muros de los límites
-            const geoMuro = new THREE.BoxGeometry(140, 10, 2);
-            const matMuro = new THREE.MeshStandardMaterial({map: texMuro, color: 0x555555});
-            
-            const muroNorte = new THREE.Mesh(geoMuro, matMuro); muroNorte.position.set(0, 5, -70); escena.add(muroNorte);
-            const muroSur = new THREE.Mesh(geoMuro, matMuro); muroSur.position.set(0, 5, 70); escena.add(muroSur);
-            const muroEste = new THREE.Mesh(geoMuro, matMuro); muroEste.position.set(70, 5, 0); muroEste.rotation.y = Math.PI / 2; escena.add(muroEste);
-            const muroOeste = new THREE.Mesh(geoMuro, matMuro); muroOeste.position.set(-70, 5, 0); muroOeste.rotation.y = Math.PI / 2; escena.add(muroOeste);
         }
-        generarEntorno(); 
+        generarArboles();
 
+        // 5. VARIABLES DE JUEGO Y CONTROLES
         let jugador = { vida: 100, maxVida: 100 };
         let municion = { actual: 30, maxima: 30, recargando: false }; 
         let sistemaHordas = { nivel: 1, zombiesRestantes: 15, zombiesTotales: 15, multiplicadorVidaZombie: 1, velocidadZombie: 0.04 };
         let datosZombiesGrupales = [];
 
         let modeloTP; let mixerTP; let accionesTP = {}; 
-
         let enemigos = [];
-        const reloj = new THREE.Clock(); const fbxLoader = new FBXLoader();
+        const reloj = new THREE.Clock(); 
         let juegoListo = false; let juegoEmpezado = false; let gameOver = false;
 
         const controles = new PointerLockControls(camaraControles, document.body);
@@ -247,7 +238,7 @@
         function crearZombie(tipoElegido) {
             const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
             clonMesh.position.set((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120);
-            clonMesh.radioH = 1.0; escena.add(clonMesh);
+            escena.add(clonMesh);
             const mixer = new THREE.AnimationMixer(clonMesh);
             const acciones = { walk: mixer.clipAction(tipoElegido.animaciones.walk), attack: mixer.clipAction(tipoElegido.animaciones.attack), death: mixer.clipAction(tipoElegido.animaciones.death) };
             acciones.death.setLoop(THREE.LoopOnce); acciones.death.clampWhenFinished = true; acciones.walk.play();
@@ -262,11 +253,51 @@
             });
         }
 
+        // 6. SISTEMA DE CARGA (AQUÍ SE CARGA TU CARRO.GLB)
         async function iniciarCarga() {
             try {
-                const escalaNormal = 0.007; 
-                estadoCarga.innerText = "Cargando mundo y zombies...";
+                estadoCarga.innerText = "Cargando autos y entorno...";
+                
+                let modeloAutoBase;
+                // Ajusta este número si tu auto se ve gigante o diminuto:
+                const escalaAuto = 1.0; 
+                
+                try {
+                    // Intenta cargar el archivo "Carro.glb"
+                    const gltfData = await new Promise((resolve, reject) => {
+                        gltfLoader.load('./Carro.glb', resolve, undefined, reject);
+                    });
+                    
+                    modeloAutoBase = gltfData.scene;
+                    modeloAutoBase.scale.set(escalaAuto, escalaAuto, escalaAuto);
+                    modeloAutoBase.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
+                } catch (e) {
+                    // Plan B: Si no tienes el archivo Carro.glb o tiene un error, carga una caja
+                    console.warn("No se encontró Carro.glb o hubo un error. Cargando caja de metal de emergencia.");
+                    const texMetalCarro = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/peeling_painted_metal.png?height=512&quality=80');
+                    texMetalCarro.wrapS = texMetalCarro.wrapT = THREE.RepeatWrapping; texMetalCarro.repeat.set(2, 2);
+                    modeloAutoBase = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.2, 5), new THREE.MeshStandardMaterial({map: texMetalCarro, color: 0x777777}));
+                }
 
+                // Clonar autos en el mapa
+                for(let i=0; i<15; i++) {
+                    const x = (Math.random() - 0.5) * 120; const z = (Math.random() - 0.5) * 120;
+                    if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; 
+                    
+                    const autoClon = SkeletonUtils.clone(modeloAutoBase);
+                    autoClon.position.set(x, 0, z); 
+                    if(!modeloAutoBase.isObject3D) { autoClon.position.y = 0.6; } 
+                    
+                    autoClon.rotation.y = Math.random() * Math.PI; 
+                    escena.add(autoClon);
+                    
+                    // Crear la hitbox que detendrá zombies y sobre la que podrás saltar
+                    const cajaAuto = new THREE.Box3().setFromObject(autoClon);
+                    cajasColision.push(cajaAuto);
+                }
+
+                estadoCarga.innerText = "Cargando personajes y zombies...";
+                const escalaNormal = 0.007; 
                 const tpIdleModel = await cargarFBX('./Rifle Idle.fbx');
                 const tpRunModel = await cargarFBX('./correr.fbx');
                 modeloTP = tpIdleModel;
@@ -292,10 +323,11 @@
                 for(let i=0; i<sistemaHordas.zombiesTotales; i++) { crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]); }
 
                 estadoCarga.innerText = "¡PREPARADO!"; btnIniciar.disabled = false; juegoListo = true;
-            } catch (error) { console.error(error); estadoCarga.innerText = "ERROR AL CARGAR DATOS."; }
+            } catch (error) { console.error(error); estadoCarga.innerText = "ERROR AL CARGAR DATOS. Verifica la consola."; }
         }
         iniciarCarga();
 
+        // 7. MECÁNICA DE DISPARO
         const ray = new THREE.Raycaster();
         const matDisparo = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 }); 
         
@@ -352,6 +384,7 @@
             estadoTPActual = nuevoEstado;
         }
 
+        // 8. BUCLE PRINCIPAL DE ANIMACIÓN Y FÍSICAS
         function animar() {
             requestAnimationFrame(animar);
             const delta = reloj.getDelta();
@@ -365,13 +398,11 @@
                 if(teclas.w) controles.moveForward(0.15); if(teclas.s) controles.moveForward(-0.15);
                 if(teclas.a) controles.moveRight(-0.12); if(teclas.d) controles.moveRight(0.12);
                 
-                // LÍMITES DEL MAPA ESTRICTOS
                 if(camaraControles.position.x > 68) camaraControles.position.x = 68;
                 if(camaraControles.position.x < -68) camaraControles.position.x = -68;
                 if(camaraControles.position.z > 68) camaraControles.position.z = 68;
                 if(camaraControles.position.z < -68) camaraControles.position.z = -68;
 
-                // --- SISTEMA DE PARKOUR Y PLATAFORMAS ---
                 const piesYActual = camaraControles.position.y - 1.6;
                 let alturaSueloLocal = 0; 
                 let chocoPared = false;
@@ -384,26 +415,22 @@
                     if(camaraControles.position.x > minX && camaraControles.position.x < maxX &&
                        camaraControles.position.z > minZ && camaraControles.position.z < maxZ) {
                         
-                        // Si estamos lo suficientemente alto como para pisarlo
                         if(piesYActual >= caja.max.y - 0.2) {
                             alturaSueloLocal = Math.max(alturaSueloLocal, caja.max.y);
                         } else {
-                            chocoPared = true; // Si no, es una pared y chocamos
+                            chocoPared = true; 
                         }
                     }
                 }
 
-                // Deshacer movimiento si chocamos con una pared
                 if(chocoPared) {
                     camaraControles.position.x = posAnterior.x;
                     camaraControles.position.z = posAnterior.z;
                 }
 
-                // Aplicar gravedad y salto
                 camaraControles.position.y += velY; 
                 velY -= 0.015; 
 
-                // Aterrizaje dinámico (piso o techo de autos)
                 if(camaraControles.position.y - 1.6 <= alturaSueloLocal) { 
                     camaraControles.position.y = alturaSueloLocal + 1.6; 
                     velY = 0; 
@@ -428,20 +455,35 @@
                     if(moviendose && enSuelo) cambiarAnimacionTP('run'); else cambiarAnimacionTP('idle');
                 }
 
-                // Lógica de zombies
                 const logicalPlayerPos = camaraControles.position.clone(); 
-                logicalPlayerPos.y = 0; // Zombies siempre se quedan a nivel del piso
+                logicalPlayerPos.y = 0; 
                 let recibiendoDano = false;
                 
                 for(let z of enemigos) {
                     z.mixer.update(delta); if(z.estado === 'dead') continue;
                     z.mesh.lookAt(logicalPlayerPos);
                     
-                    // Calculamos la distancia 3D real para que si estás arriba de un auto, el zombie tenga que acercarse más
                     const dist3D = z.mesh.position.distanceTo(camaraControles.position);
 
+                    const dirZombie = new THREE.Vector3();
+                    z.mesh.getWorldDirection(dirZombie);
+                    const posFutura = z.mesh.position.clone().add(dirZombie.multiplyScalar(sistemaHordas.velocidadZombie));
+                    
+                    const hitboxZombie = new THREE.Box3().setFromCenterAndSize(
+                        new THREE.Vector3(posFutura.x, 1, posFutura.z), 
+                        new THREE.Vector3(1, 2, 1) 
+                    );
+
+                    let chocaAmbiente = false;
+                    for(let caja of cajasColision) {
+                        if(hitboxZombie.intersectsBox(caja)) {
+                            chocaAmbiente = true; break;
+                        }
+                    }
+
                     if(dist3D > 2.5) { 
-                        z.mesh.translateZ(sistemaHordas.velocidadZombie); z.cambiarEstado('walk'); 
+                        if(!chocaAmbiente) z.mesh.translateZ(sistemaHordas.velocidadZombie); 
+                        z.cambiarEstado('walk'); 
                     } else { 
                         z.cambiarEstado('attack'); jugador.vida -= 0.2; recibiendoDano = true; actualizarHUD(); 
                     }
