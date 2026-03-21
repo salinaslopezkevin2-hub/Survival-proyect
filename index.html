@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - v14 (Corrección de Errores)</title>
+    <title>Nexus FPS - v15 (3ra Persona, Salto, Linterna y Láser)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         #menuInicio {
@@ -27,7 +27,7 @@
             color: white; z-index: 20; text-align: center;
         }
         #mira {
-            position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; border: 2px solid #00ff00;
+            position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid #ff0000;
             border-radius: 50%; transform: translate(-50%, -50%); z-index: 10; pointer-events: none; display: none;
         }
         #hud {
@@ -43,13 +43,13 @@
 <body>
     <div id="menuInicio">
         <h1 id="tituloMenu">NEXUS FPS: SURVIVAL</h1>
-        <p id="estadoCarga" style="color: #00ff00;">Cargando mundo...</p>
+        <p id="estadoCarga" style="color: #00ff00;">Cargando archivos del juego...</p>
         <button id="btnIniciar" class="botonMenu" disabled>ENTRAR AL BOSQUE</button>
     </div>
     <div id="bloqueo">
         <h1 id="textoPausa">PAUSA</h1>
-        <button id="btnContinuar" class="botonMenu">VOLVER</button>
-        <button id="btnSalir" class="botonMenu" style="border-color: red; color: red;">SALIR</button>
+        <button id="btnContinuar" class="botonMenu">VOLVER AL JUEGO</button>
+        <button id="btnSalir" class="botonMenu" style="border-color: red; color: red;">SALIR AL MENÚ</button>
     </div>
     <div id="pantallaRoja"></div>
     <div id="mira"></div>
@@ -57,7 +57,7 @@
         HP: <span id="uiVida">100</span> | 
         HORDA: <span id="uiHorda">1</span> | 
         ZOMBIES: <span id="uiZombies">15</span>
-        <br><span style="font-size: 0.8rem;">[F] LINTERNA | [V] CAMBIAR CÁMARA (1ra/3ra)</span>
+        <br><span style="font-size: 0.8rem;">[WASD] Mover | [ESPACIO] Saltar | [F] Linterna | [CLICK] Disparar Láser</span>
     </div>
 
     <script type="importmap">
@@ -76,35 +76,49 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-        // --- ILUMINACIÓN RESTAURADA (v12) ---
+        // --- ENTORNO TÉTRICO PERFECTO ---
         const escena = new THREE.Scene();
-        escena.background = new THREE.Color(0x1a1a24); 
-        escena.fog = new THREE.FogExp2(0x1a1a24, 0.03); 
+        escena.background = new THREE.Color(0x0a0a10); 
+        escena.fog = new THREE.FogExp2(0x0a0a10, 0.04); // Niebla oscura pero que deja ver de cerca
 
         const camaraControles = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const camaraRender = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
+        escena.add(camaraControles); // Necesario para la linterna
+
         const renderizador = new THREE.WebGLRenderer({ antialias: true });
         renderizador.setSize(window.innerWidth, window.innerHeight);
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        escena.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1)); 
-        const luna = new THREE.DirectionalLight(0x8888ff, 0.6); 
+        // Luces balanceadas
+        escena.add(new THREE.HemisphereLight(0x333344, 0x111118, 0.3)); // Luz ambiente muy sutil
+        const luna = new THREE.DirectionalLight(0x555588, 0.2); // Luz de luna tenue
         luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
+
+        // --- SISTEMA DE LINTERNA REAL ---
+        const linterna = new THREE.SpotLight(0xffffff, 0); // Empieza apagada (intensidad 0)
+        linterna.angle = Math.PI / 5;
+        linterna.penumbra = 0.3;
+        linterna.distance = 40;
+        linterna.castShadow = true;
+        linterna.position.set(0, 0, 0); // Posición relativa a la cámara
+        linterna.target.position.set(0, 0, -1); // Apunta hacia adelante
+        camaraControles.add(linterna);
+        camaraControles.add(linterna.target);
+        let linternaEncendida = false;
 
         const loaderTex = new THREE.TextureLoader();
         const texPiso = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/aerial_grass_rock.png?height=760&quality=95');
         texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping; texPiso.repeat.set(30, 30);
-        const piso = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ map: texPiso, color: 0x555555 }));
+        const piso = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ map: texPiso, color: 0x444444 }));
         piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; escena.add(piso);
 
         // --- GENERADOR DE BOSQUE ---
         function generarEntorno() {
             const geoTronco = new THREE.CylinderGeometry(0.6, 0.8, 4, 8);
-            const matTronco = new THREE.MeshStandardMaterial({color: 0x2d1a11}); 
+            const matTronco = new THREE.MeshStandardMaterial({color: 0x221111}); 
             const geoHojas = new THREE.ConeGeometry(3, 7, 8);
-            const matHojas = new THREE.MeshStandardMaterial({color: 0x1a331a}); 
+            const matHojas = new THREE.MeshStandardMaterial({color: 0x0a1a0a}); 
 
             for(let i=0; i<100; i++) {
                 const x = (Math.random() - 0.5) * 140; const z = (Math.random() - 0.5) * 140;
@@ -116,7 +130,7 @@
             for(let i=0; i<15; i++) {
                 const x = (Math.random() - 0.5) * 120; const z = (Math.random() - 0.5) * 120;
                 if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; 
-                const auto = new THREE.Mesh(geoAuto, new THREE.MeshStandardMaterial({color: 0x5c2b2b})); auto.position.set(x, 0.6, z); auto.rotation.y = Math.random() * Math.PI; escena.add(auto);
+                const auto = new THREE.Mesh(geoAuto, new THREE.MeshStandardMaterial({color: 0x3c1b1b})); auto.position.set(x, 0.6, z); auto.rotation.y = Math.random() * Math.PI; escena.add(auto);
             }
         }
         generarEntorno(); 
@@ -125,15 +139,11 @@
         let sistemaHordas = { nivel: 1, zombiesRestantes: 15, zombiesTotales: 15, multiplicadorVidaZombie: 1, velocidadZombie: 0.04 };
         let datosZombiesGrupales = [];
 
-        let mezcladorIdle, mezcladorRun; let modeloIdle, modeloRun; 
+        // 3RA PERSONA EXCLUSIVA
         let modeloTP; let mixerTP; let accionesTP = {}; 
-        let esTerceraPersona = false; 
-
-        // --- ¡AQUÍ ESTÁ LA SOLUCIÓN AL PERSONAJE ENTERRADO! ---
-        // Si tu modelo tiene el centro en el estómago, pon este valor en 1.0 (aprox).
-        // Si flota en el aire, ponlo en -0.5 o menos. Juega con este número.
+        
+        // Ajuste de altura por si el personaje queda enterrado (cámbialo si es necesario)
         const AJUSTE_ALTURA_Y = 0; 
-        // --------------------------------------------------------
 
         let enemigos = [];
         const reloj = new THREE.Clock(); const fbxLoader = new FBXLoader();
@@ -145,8 +155,30 @@
             menuInicio.style.display = 'none'; mira.style.display = 'block'; hud.style.display = 'block'; pantallaRoja.style.display = 'block';
             controles.lock(); juegoEmpezado = true;
         });
+        
         btnContinuar.addEventListener('click', () => { if(!gameOver) controles.lock(); });
-        btnSalir.addEventListener('click', () => { location.reload(); });
+        
+        // --- SISTEMA DE REINICIO RÁPIDO ---
+        btnSalir.addEventListener('click', () => {
+            // No recargamos la página, solo reseteamos variables
+            jugador.vida = 100;
+            sistemaHordas.nivel = 1; sistemaHordas.zombiesTotales = 15; sistemaHordas.zombiesRestantes = 15;
+            sistemaHordas.multiplicadorVidaZombie = 1; sistemaHordas.velocidadZombie = 0.04;
+            
+            enemigos.forEach(z => escena.remove(z.mesh)); // Borrar zombies viejos
+            enemigos = [];
+            for(let i=0; i<sistemaHordas.zombiesTotales; i++) { crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]); }
+            
+            camaraControles.position.set(0, 1.6, 0); // Volver al centro
+            gameOver = false; juegoEmpezado = false;
+            
+            bloqueo.style.display = 'none'; pantallaRoja.style.display = 'none';
+            mira.style.display = 'none'; hud.style.display = 'none';
+            menuInicio.style.display = 'flex'; textoPausa.innerText = "PAUSA"; textoPausa.style.color = "white";
+            btnContinuar.style.display = "inline-block"; estadoCarga.innerText = "¡PREPARADO!";
+            actualizarHUD();
+        });
+
         controles.addEventListener('lock', () => bloqueo.style.display = 'none');
         controles.addEventListener('unlock', () => { if(juegoEmpezado) bloqueo.style.display = 'flex'; });
 
@@ -155,7 +187,10 @@
             if(!controles.isLocked || !juegoEmpezado || gameOver) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
-            if(e.code === 'KeyV') esTerceraPersona = !esTerceraPersona; 
+            if(e.code === 'KeyF') { // LINTERNA
+                linternaEncendida = !linternaEncendida;
+                linterna.intensity = linternaEncendida ? 30 : 0; // Prende y apaga
+            }
         });
         document.addEventListener('keyup', e => { if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false; });
 
@@ -193,21 +228,13 @@
         async function iniciarCarga() {
             try {
                 const escalaNormal = 0.007; 
-                const escalaArmaFPS = 0.0005; 
                 estadoCarga.innerText = "Cargando mundo y zombies...";
 
-                modeloIdle = await cargarFBX('./Rifle Idle.fbx');
-                modeloRun = await cargarFBX('./correr.fbx');
-                [modeloIdle, modeloRun].forEach(m => { m.scale.set(escalaArmaFPS, escalaArmaFPS, escalaArmaFPS); escena.add(m); });
-                modeloRun.visible = false;
-                if(modeloIdle.animations.length) { mezcladorIdle = new THREE.AnimationMixer(modeloIdle); mezcladorIdle.clipAction(modeloIdle.animations[0]).play(); }
-                if(modeloRun.animations.length) { mezcladorRun = new THREE.AnimationMixer(modeloRun); mezcladorRun.clipAction(modeloRun.animations[0]).play(); }
-
+                // CARGA ÚNICA Y EXCLUSIVA DEL MODELO EN TERCERA PERSONA
                 const tpIdleModel = await cargarFBX('./Rifle Idle.fbx');
                 const tpRunModel = await cargarFBX('./correr.fbx');
                 modeloTP = tpIdleModel;
                 modeloTP.scale.set(escalaNormal, escalaNormal, escalaNormal); 
-                modeloTP.visible = false; 
                 modeloTP.traverse(n => { if(n.isMesh) n.castShadow = true; }); 
                 escena.add(modeloTP);
                 
@@ -234,14 +261,14 @@
         iniciarCarga();
 
         const ray = new THREE.Raycaster();
-        const matDisparo = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2, transparent: true, opacity: 1 });
+        // LÁSER ROJO VISIBLE
+        const matDisparo = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 }); 
         
         window.addEventListener('mousedown', () => {
             if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver) return;
             
-            // EL DISPARO AHORA USA LA CÁMARA CORRECTA PARA SER PRECISO
-            const camaraActiva = esTerceraPersona ? camaraRender : camaraControles;
-            ray.setFromCamera(new THREE.Vector2(0, 0), camaraActiva);
+            // Disparo centrado con la cámara
+            ray.setFromCamera(new THREE.Vector2(0, 0), camaraRender);
             
             const objetivoBala = new THREE.Vector3(); ray.ray.at(100, objetivoBala); 
             const meshesVivos = enemigos.filter(z => z.estado !== 'dead').map(z => z.mesh);
@@ -261,11 +288,15 @@
                     }
                 }
             }
-            if (modeloIdle && !esTerceraPersona) {
-                const puntoDisparo = new THREE.Vector3(); puntoDisparo.setFromMatrixPosition(modeloIdle.matrixWorld); 
+            
+            // DIBUJAR EL LÁSER ROJO DESDE EL PERSONAJE HASTA EL OBJETIVO
+            if (modeloTP) {
+                const puntoDisparo = new THREE.Vector3(); 
+                puntoDisparo.copy(modeloTP.position);
+                puntoDisparo.y += 1.2; // Altura aproximada del arma en el modelo
                 const geoDisparo = new THREE.BufferGeometry().setFromPoints([puntoDisparo, objetivoBala]);
                 const rastro = new THREE.Line(geoDisparo, matDisparo.clone()); escena.add(rastro);
-                setTimeout(() => { escena.remove(rastro); rastro.material.dispose(); geoDisparo.dispose(); }, 60);
+                setTimeout(() => { escena.remove(rastro); rastro.material.dispose(); geoDisparo.dispose(); }, 80); // Desaparece rápido
             }
         });
 
@@ -282,15 +313,15 @@
             const delta = reloj.getDelta();
             
             if(juegoEmpezado && !gameOver && controles.isLocked) {
-                if(mezcladorIdle) mezcladorIdle.update(delta);
-                if(mezcladorRun) mezcladorRun.update(delta);
                 if(mixerTP) mixerTP.update(delta);
 
                 const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
                 
+                // Movimiento WASD fluido
                 if(teclas.w) controles.moveForward(0.15); if(teclas.s) controles.moveForward(-0.15);
                 if(teclas.a) controles.moveRight(-0.12); if(teclas.d) controles.moveRight(0.12);
                 
+                // SALTO VINCULADO
                 camaraControles.position.y += velY; if(!enSuelo) velY -= 0.015;
                 if(camaraControles.position.y <= 1.6) { camaraControles.position.y = 1.6; velY = 0; enSuelo = true; } 
 
@@ -299,30 +330,18 @@
                 camaraRender.position.copy(camaraControles.position);
                 camaraRender.quaternion.copy(camaraControles.quaternion);
 
-                if(esTerceraPersona) {
-                    camaraRender.translateZ(3.0); 
-                    camaraRender.position.y += 0.5;
+                // Configuración final de la cámara en 3ra persona
+                camaraRender.translateZ(3.0); // Distancia hacia atrás
+                camaraRender.position.y += 0.5; // Altura sobre el hombro
+                
+                if(modeloTP) {
+                    const posPies = camaraControles.position.clone(); 
+                    // El salto del modelo: Se resta 1.6 para que los pies toquen el suelo, pero si la cámara sube, los pies suben
+                    posPies.y = camaraControles.position.y - 1.6 + AJUSTE_ALTURA_Y; 
+                    modeloTP.position.copy(posPies);
+                    modeloTP.rotation.y = euler.y + Math.PI; // El modelo siempre mira hacia donde apunta la cámara
                     
-                    if(modeloTP) {
-                        modeloTP.visible = true;
-                        const posPies = camaraControles.position.clone(); 
-                        posPies.y = AJUSTE_ALTURA_Y; // Altura corregida aquí
-                        modeloTP.position.copy(posPies);
-                        modeloTP.rotation.y = euler.y + Math.PI;
-                        if(moviendose && enSuelo) cambiarAnimacionTP('run'); else cambiarAnimacionTP('idle');
-                    }
-                    if(modeloIdle) modeloIdle.visible = false;
-                    if(modeloRun) modeloRun.visible = false;
-                } else {
-                    if(modeloTP) modeloTP.visible = false;
-                    if(modeloIdle && modeloRun) {
-                        const fpsOffset = new THREE.Vector3(0.3, -0.4, -0.6); 
-                        const finalPos = camaraControles.position.clone().add(fpsOffset.applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
-                        modeloIdle.position.copy(finalPos); modeloIdle.rotation.y = euler.y + Math.PI;
-                        modeloRun.position.copy(finalPos); modeloRun.rotation.y = euler.y + Math.PI;
-                        modeloIdle.visible = !moviendose || !enSuelo; 
-                        modeloRun.visible = moviendose && enSuelo;
-                    }
+                    if(moviendose && enSuelo) cambiarAnimacionTP('run'); else cambiarAnimacionTP('idle');
                 }
 
                 const logicalPlayerPos = camaraControles.position.clone(); logicalPlayerPos.y = 0; 
