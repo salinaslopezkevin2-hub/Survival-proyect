@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - Horda Zombie FBX</title>
+    <title>Nexus FPS - Horda Zombie FBX (v3)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #bloqueo {
@@ -49,7 +49,7 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-        // --- ESCENA BÁSICA (Tus configuraciones) ---
+        // --- ESCENA BÁSICA ---
         const escena = new THREE.Scene();
         escena.background = new THREE.Color(0x87ceeb);
         escena.fog = new THREE.Fog(0x87ceeb, 0, 70);
@@ -104,17 +104,19 @@
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false;
         });
 
-        // --- SISTEMA DE CARGA ASÍNCRONA ---
-        const cargarFBX = (url) => new Promise((resolve, reject) => fbxLoader.load(url, resolve, undefined, reject));
+        // --- CARGA ---
+        const cargarFBX = (url) => new Promise((resolve, reject) => {
+            fbxLoader.load(url, resolve, undefined, (err) => reject({url, err}));
+        });
 
         async function iniciarJuego() {
             try {
-                // 1. Cargar tus Armas
+                instrucciones.innerText = "Cargando Rifle...";
                 modeloIdle = await cargarFBX('./Rifle Idle.fbx');
                 modeloRun = await cargarFBX('./correr.fbx');
                 
                 [modeloIdle, modeloRun].forEach(m => {
-                    m.scale.set(0.01, 0.01, 0.01);
+                    m.scale.set(0.01, 0.01, 0.01); 
                     m.traverse(n => { if(n.isMesh) n.castShadow = true; });
                     escena.add(m);
                 });
@@ -123,15 +125,23 @@
                 if(modeloIdle.animations.length) { mezcladorIdle = new THREE.AnimationMixer(modeloIdle); mezcladorIdle.clipAction(modeloIdle.animations[0]).play(); }
                 if(modeloRun.animations.length) { mezcladorRun = new THREE.AnimationMixer(modeloRun); mezcladorRun.clipAction(modeloRun.animations[0]).play(); }
 
-                // 2. Cargar Zombies
+                // LISTA EXACTA DE TUS ZOMBIES DE GITHUB
+                const nombresZombies = [
+                    { walk: './Z1_Walk.fbx', attack: './Z1_attack.fbx', death: './Z1_Death.fbx' },
+                    { walk: './Z2_Walk.fbx', attack: './Z2_attack.fbx', death: './Z2_Death.fbx' },
+                    { walk: './Z3_walk.fbx', attack: './Z3_attack.fbx', death: './Z3-Death.fbx' } // <-- ¡El guion rebelde!
+                ];
+
                 const datosZombies = [];
-                for(let i=1; i<=3; i++) {
-                    instrucciones.innerText = `Descargando Zombie ${i} de 3...`;
-                    const w = await cargarFBX(`./z${i}_walk.fbx`);
-                    const a = await cargarFBX(`./z${i}_attack.fbx`);
-                    const d = await cargarFBX(`./z${i}_death.fbx`);
+                for(let i=0; i<nombresZombies.length; i++) {
+                    instrucciones.innerText = `Descargando Zombie ${i+1} de 3...`;
+                    const archivos = nombresZombies[i];
                     
-                    w.scale.set(0.01, 0.01, 0.01);
+                    const w = await cargarFBX(archivos.walk);
+                    const a = await cargarFBX(archivos.attack);
+                    const d = await cargarFBX(archivos.death);
+                    
+                    w.scale.set(0.007, 0.007, 0.007); // Altura corregida
                     w.traverse(n => { if(n.isMesh) n.castShadow = true; });
 
                     datosZombies.push({
@@ -140,13 +150,13 @@
                     });
                 }
 
-                // 3. Crear 15 Zombies en el mapa
+                // Generar horda
                 for(let i=0; i<15; i++) {
                     const tipoElegido = datosZombies[Math.floor(Math.random() * datosZombies.length)];
                     const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
                     
                     clonMesh.position.set((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
-                    clonMesh.radioH = 1.3; // Tu colisión original
+                    clonMesh.radioH = 1.0; 
                     escena.add(clonMesh);
 
                     const mixer = new THREE.AnimationMixer(clonMesh);
@@ -176,14 +186,14 @@
                 juegoListo = true;
 
             } catch (error) {
-                console.error(error);
+                console.error("Fallo al cargar el archivo:", error.url);
                 titulo.innerText = "ERROR AL CARGAR";
-                instrucciones.innerText = "Revisa los nombres de los archivos en GitHub.";
+                instrucciones.innerHTML = `No se pudo encontrar el archivo:<br><b>${error.url}</b>`;
             }
         }
         iniciarJuego();
 
-        // --- DISPARO A ZOMBIES ---
+        // --- DISPARO ---
         const ray = new THREE.Raycaster();
         window.addEventListener('mousedown', () => {
             if(!controles.isLocked || !juegoListo) return;
@@ -203,7 +213,7 @@
             }
         });
 
-        // --- BUCLE DE ANIMACIÓN ---
+        // --- ANIMACIÓN ---
         function animar() {
             requestAnimationFrame(animar);
             const delta = reloj.getDelta();
@@ -215,7 +225,6 @@
                 const prevPos = camara.position.clone();
                 const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
 
-                // Tus velocidades originales
                 if(teclas.w) controles.moveForward(0.15);
                 if(teclas.s) controles.moveForward(-0.15);
                 if(teclas.a) controles.moveRight(-0.12);
@@ -225,7 +234,6 @@
                 if(!enSuelo) velY -= 0.015;
                 if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; }
 
-                // Tu posición original del arma
                 if(modeloIdle && modeloRun) {
                     const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
                     const offset = new THREE.Vector3(0.5, -1.6, -2.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y);
@@ -237,7 +245,6 @@
                     modeloIdle.visible = !moviendose || !enSuelo;
                     modeloRun.visible = moviendose && enSuelo;
 
-                    // Colisiones con los zombies vivos
                     for(let z of enemigos) {
                         if(z.estado === 'dead') continue;
                         const dist = modeloIdle.position.distanceTo(new THREE.Vector3(z.mesh.position.x, modeloIdle.position.y, z.mesh.position.z));
@@ -247,7 +254,6 @@
                     }
                 }
 
-                // Inteligencia Zombie
                 const posJugador = camara.position.clone();
                 posJugador.y = 0; 
 
