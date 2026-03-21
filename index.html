@@ -3,42 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - v4 PRO</title>
+    <title>Nexus FPS - Zombies & Hordas (v5)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         
-        /* --- ESTILOS DEL MENÚ DE INICIO --- */
+        /* MENÚ DE INICIO */
         #menuInicio {
             position: absolute; width: 100%; height: 100%;
-            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.9)), 
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.9)), 
                         url('https://cdn.polyhaven.com/asset_img/primary/rocky_terrain_02.png?height=760&quality=95');
             background-size: cover;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: #00ff00; z-index: 100; text-align: center;
-            text-shadow: 0 0 10px #00ff00;
+            color: #00ff00; z-index: 100; text-align: center; text-shadow: 0 0 10px #00ff00;
         }
-        #tituloMenu { font-size: 4rem; margin-bottom: 20px; letter-spacing: 5px; }
+        #tituloMenu { font-size: 4rem; margin-bottom: 10px; }
         .botonMenu {
-            background: rgba(0, 255, 0, 0.1);
-            border: 2px solid #00ff00;
-            color: #00ff00;
-            padding: 15px 40px;
-            font-size: 1.5rem;
-            cursor: pointer;
-            margin: 10px;
-            transition: all 0.3s;
-            font-family: inherit;
+            background: rgba(0, 255, 0, 0.1); border: 2px solid #00ff00; color: #00ff00;
+            padding: 15px 40px; font-size: 1.5rem; cursor: pointer; margin: 10px;
+            transition: all 0.3s; font-family: inherit; font-weight: bold;
         }
-        .botonMenu:hover { background: rgba(0, 255, 0, 0.3); box-shadow: 0 0 20px #00ff00; }
+        .botonMenu:hover { background: rgba(0, 255, 0, 0.4); box-shadow: 0 0 20px #00ff00; }
         .botonMenu:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* --- ESTILOS DEL JUEGO --- */
+        /* PAUSA Y GAMEOVER */
         #bloqueo {
-            position: absolute; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.8);
             display: none; flex-direction: column; justify-content: center; align-items: center;
-            color: white; cursor: pointer; z-index: 20; text-align: center;
+            color: white; z-index: 20; text-align: center;
         }
+        
+        /* HUD EN JUEGO */
         #mira {
             position: absolute; top: 50%; left: 50%;
             width: 14px; height: 14px; border: 2px solid #00ff00;
@@ -47,26 +41,33 @@
         }
         #hud {
             position: absolute; bottom: 20px; left: 20px;
-            color: #00ff00; font-size: 1.2rem; display: none;
-            text-shadow: 2px 2px #000; pointer-events: none;
+            color: #00ff00; font-size: 1.5rem; display: none;
+            text-shadow: 2px 2px #000; font-weight: bold; pointer-events: none;
+        }
+        #pantallaRoja {
+            position: absolute; width: 100%; height: 100%;
+            background: red; opacity: 0; pointer-events: none; z-index: 5;
+            transition: opacity 0.2s; display: none;
         }
     </style>
 </head>
 <body>
     <div id="menuInicio">
-        <h1 id="tituloMenu">NEXUS FPS</h1>
-        <p id="estadoCarga">Descargando recursos...</p>
-        <button id="btnIniciar" class="botonMenu" disabled>INICIAR JUEGO</button>
-        <button id="btnPersonalizar" class="botonMenu" disabled>PERSONALIZAR (Pronto)</button>
+        <h1 id="tituloMenu">NEXUS FPS: SURVIVAL</h1>
+        <p id="estadoCarga">Descargando armas y zombies...</p>
+        <button id="btnIniciar" class="botonMenu" disabled>INICIAR PARTIDA</button>
+        <button class="botonMenu" style="opacity: 0.5;">MEJORAR ARMAS (Próximamente)</button>
     </div>
 
     <div id="bloqueo">
-        <h1>PAUSA</h1>
-        <p>CLIC PARA CONTINUAR</p>
+        <h1 id="textoPausa">PAUSA</h1>
+        <button id="btnContinuar" class="botonMenu">VOLVER AL JUEGO</button>
+        <button id="btnSalir" class="botonMenu" style="border-color: red; color: red;">ABANDONAR AL MENÚ PRINCIPAL</button>
     </div>
 
+    <div id="pantallaRoja"></div>
     <div id="mira"></div>
-    <div id="hud">ARMA: RIFLE | VISTA: 1ª PERSONA (V)</div>
+    <div id="hud">HP: <span id="uiVida">100</span> | HORDA: <span id="uiHorda">1</span> | ZOMBIES: <span id="uiZombies">15</span></div>
 
     <script type="importmap">
         {
@@ -84,7 +85,7 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-        // --- ESCENA BÁSICA (Tus colores) ---
+        // --- CONFIGURACIÓN BÁSICA ---
         const escena = new THREE.Scene();
         escena.background = new THREE.Color(0x87ceeb);
         escena.fog = new THREE.Fog(0x87ceeb, 0, 70);
@@ -96,92 +97,104 @@
         document.body.appendChild(renderizador.domElement);
 
         escena.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
-        const sol = new THREE.DirectionalLight(0xffffff, 0.8);
-        sol.position.set(10, 20, 10);
-        sol.castShadow = true;
-        escena.add(sol);
+        const sol = new THREE.DirectionalLight(0xffffff, 0.8); sol.position.set(10, 20, 10); sol.castShadow = true; escena.add(sol);
 
-        // --- PISO ---
         const loaderTex = new THREE.TextureLoader();
         const texPiso = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/rocky_terrain_02.png?height=760&quality=95');
-        texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping;
-        texPiso.repeat.set(20, 20);
+        texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping; texPiso.repeat.set(20, 20);
         const piso = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: texPiso }));
-        piso.rotation.x = -Math.PI / 2;
-        piso.receiveShadow = true;
-        escena.add(piso);
+        piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; escena.add(piso);
 
-        // --- VARIABLES DEL JUEGO ---
-        let mezcladorIdle, mezcladorRun;
-        let modeloIdle, modeloRun;
+        // --- SISTEMA DEL JUEGO (NUEVO) ---
+        let jugador = { vida: 100, maxVida: 100 };
+        let sistemaHordas = { nivel: 1, zombiesRestantes: 15, zombiesTotales: 15, multiplicadorVidaZombie: 1, velocidadZombie: 0.04 };
+        let datosZombiesGrupales = []; // Guarda los modelos para clonarlos en nuevas hordas
+
+        let mezcladorIdle, mezcladorRun; let modeloIdle, modeloRun;
         let enemigos = [];
-        const reloj = new THREE.Clock();
-        const fbxLoader = new FBXLoader();
-        let juegoListo = false;
-        let juegoEmpezado = false;
+        const reloj = new THREE.Clock(); const fbxLoader = new FBXLoader();
+        let juegoListo = false; let juegoEmpezado = false; let gameOver = false;
 
-        // Nuevas variables para v4
-        let vistaTerceraPersona = false;
-        const puntoDisparo = new THREE.Vector3(); // Para el rastro de bala
-
-        // --- ELEMENTOS DOM ---
-        const menuInicio = document.getElementById('menuInicio');
-        const estadoCarga = document.getElementById('estadoCarga');
-        const btnIniciar = document.getElementById('btnIniciar');
-        const pantallaBloqueo = document.getElementById('bloqueo');
-        const mira = document.getElementById('mira');
-        const hud = document.getElementById('hud');
-
-        // --- CONTROLES Y FÍSICAS (Tus configs) ---
         const controles = new PointerLockControls(camara, document.body);
         
-        // Manejo del menú
-        btnIniciar.addEventListener('click', () => {
-            menuInicio.style.display = 'none';
-            mira.style.display = 'block';
-            hud.style.display = 'block';
-            controles.lock();
-            juegoEmpezado = true;
+        // INTERFAZ
+        document.getElementById('btnIniciar').addEventListener('click', () => {
+            document.getElementById('menuInicio').style.display = 'none';
+            document.getElementById('mira').style.display = 'block';
+            document.getElementById('hud').style.display = 'block';
+            document.getElementById('pantallaRoja').style.display = 'block';
+            controles.lock(); juegoEmpezado = true;
         });
 
-        pantallaBloqueo.addEventListener('click', () => { if(juegoEmpezado) controles.lock(); });
-        controles.addEventListener('lock', () => pantallaBloqueo.style.display = 'none');
-        controles.addEventListener('unlock', () => { if(juegoEmpezado) pantallaBloqueo.style.display = 'flex'; });
+        document.getElementById('btnContinuar').addEventListener('click', () => { if(!gameOver) controles.lock(); });
+        document.getElementById('btnSalir').addEventListener('click', () => { location.reload(); }); // Recarga la página (Vuelve al menú)
 
-        const teclas = { w:false, a:false, s:false, d:false };
-        let velY = 0, enSuelo = true;
+        controles.addEventListener('lock', () => document.getElementById('bloqueo').style.display = 'none');
+        controles.addEventListener('unlock', () => { 
+            if(juegoEmpezado) document.getElementById('bloqueo').style.display = 'flex'; 
+        });
 
+        const teclas = { w:false, a:false, s:false, d:false }; let velY = 0, enSuelo = true;
         document.addEventListener('keydown', e => {
-            if(!controles.isLocked || !juegoEmpezado) return;
+            if(!controles.isLocked || !juegoEmpezado || gameOver) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
-            
-            // Tecla V para cambiar de cámara
-            if(e.code === 'KeyV') {
-                vistaTerceraPersona = !vistaTerceraPersona;
-                document.getElementById('hud').innerText = `ARMA: RIFLE | VISTA: ${vistaTerceraPersona ? '3ª' : '1ª'} PERSONA (V)`;
-            }
         });
-        document.addEventListener('keyup', e => {
-            if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false;
-        });
+        document.addEventListener('keyup', e => { if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false; });
 
-        // --- CARGA ---
-        const cargarFBX = (url) => new Promise((resolve, reject) => {
-            fbxLoader.load(url, resolve, undefined, (err) => reject({url, err}));
-        });
+        function actualizarHUD() {
+            document.getElementById('uiVida').innerText = Math.max(0, Math.floor(jugador.vida));
+            document.getElementById('uiHorda').innerText = sistemaHordas.nivel;
+            document.getElementById('uiZombies').innerText = sistemaHordas.zombiesRestantes;
+            
+            if(jugador.vida <= 0 && !gameOver) {
+                gameOver = true; controles.unlock();
+                document.getElementById('textoPausa').innerText = "¡ESTÁS MUERTO!";
+                document.getElementById('textoPausa').style.color = "red";
+                document.getElementById('btnContinuar').style.display = "none";
+                document.getElementById('bloqueo').style.display = 'flex';
+            }
+        }
+
+        const cargarFBX = (url) => new Promise((resolve, reject) => { fbxLoader.load(url, resolve, undefined, (err) => reject({url, err})); });
+
+        // --- GENERADOR DE ZOMBIES ---
+        function crearZombie(tipoElegido) {
+            const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
+            clonMesh.position.set((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
+            clonMesh.radioH = 1.0; escena.add(clonMesh);
+
+            const mixer = new THREE.AnimationMixer(clonMesh);
+            const acciones = {
+                walk: mixer.clipAction(tipoElegido.animaciones.walk),
+                attack: mixer.clipAction(tipoElegido.animaciones.attack),
+                death: mixer.clipAction(tipoElegido.animaciones.death)
+            };
+            acciones.death.setLoop(THREE.LoopOnce); acciones.death.clampWhenFinished = true;
+            acciones.walk.play();
+
+            enemigos.push({
+                mesh: clonMesh, mixer: mixer, acciones: acciones, estado: 'walk',
+                vida: 3 * sistemaHordas.multiplicadorVidaZombie, // Vida del zombie según la horda
+                cambiarEstado: function(nuevoEstado) {
+                    if(this.estado === nuevoEstado || this.estado === 'dead') return;
+                    if (nuevoEstado === 'dead') {
+                        this.acciones.walk.stop(); this.acciones.attack.stop();
+                        this.acciones.death.reset().play();
+                    } else {
+                        this.acciones[this.estado].fadeOut(0.2);
+                        this.acciones[nuevoEstado].reset().fadeIn(0.2).play();
+                    }
+                    this.estado = nuevoEstado;
+                }
+            });
+        }
 
         async function iniciarCarga() {
             try {
-                estadoCarga.innerText = "Cargando Rifle...";
-                modeloIdle = await cargarFBX('./Rifle Idle.fbx');
-                modeloRun = await cargarFBX('./correr.fbx');
-                
-                [modeloIdle, modeloRun].forEach(m => {
-                    m.scale.set(0.01, 0.01, 0.01); 
-                    m.traverse(n => { if(n.isMesh) n.castShadow = true; });
-                    escena.add(m);
-                });
+                const estadoCarga = document.getElementById('estadoCarga');
+                modeloIdle = await cargarFBX('./Rifle Idle.fbx'); modeloRun = await cargarFBX('./correr.fbx');
+                [modeloIdle, modeloRun].forEach(m => { m.scale.set(0.01, 0.01, 0.01); escena.add(m); });
                 modeloRun.visible = false;
                 
                 if(modeloIdle.animations.length) { mezcladorIdle = new THREE.AnimationMixer(modeloIdle); mezcladorIdle.clipAction(modeloIdle.animations[0]).play(); }
@@ -193,124 +206,82 @@
                     { walk: './Z3_walk.fbx', attack: './Z3_attack.fbx', death: './Z3-Death.fbx' }
                 ];
 
-                const datosZombies = [];
                 for(let i=0; i<nombresZombies.length; i++) {
                     estadoCarga.innerText = `Cargando Zombie ${i+1} de 3...`;
-                    const archivos = nombresZombies[i];
-                    
-                    const w = await cargarFBX(archivos.walk);
-                    const a = await cargarFBX(archivos.attack);
-                    const d = await cargarFBX(archivos.death);
-                    
+                    const w = await cargarFBX(nombresZombies[i].walk); const a = await cargarFBX(nombresZombies[i].attack); const d = await cargarFBX(nombresZombies[i].death);
                     w.scale.set(0.007, 0.007, 0.007);
-                    w.traverse(n => { if(n.isMesh) n.castShadow = true; });
-
-                    datosZombies.push({
-                        modeloBase: w,
-                        animaciones: { walk: w.animations[0], attack: a.animations[0], death: d.animations[0] }
-                    });
+                    datosZombiesGrupales.push({ modeloBase: w, animaciones: { walk: w.animations[0], attack: a.animations[0], death: d.animations[0] } });
                 }
 
-                estadoCarga.innerText = "Generando Horda...";
-                for(let i=0; i<15; i++) {
-                    const tipoElegido = datosZombies[Math.floor(Math.random() * datosZombies.length)];
-                    const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
-                    clonMesh.position.set((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
-                    clonMesh.radioH = 1.0; 
-                    escena.add(clonMesh);
-
-                    const mixer = new THREE.AnimationMixer(clonMesh);
-                    const acciones = {
-                        walk: mixer.clipAction(tipoElegido.animaciones.walk),
-                        attack: mixer.clipAction(tipoElegido.animaciones.attack),
-                        death: mixer.clipAction(tipoElegido.animaciones.death)
-                    };
-                    acciones.death.setLoop(THREE.LoopOnce);
-                    acciones.death.clampWhenFinished = true;
-                    acciones.walk.play();
-
-                    enemigos.push({
-                        mesh: clonMesh, mixer: mixer, acciones: acciones, estado: 'walk',
-                        cambiarEstado: function(nuevoEstado) {
-                            if(this.estado === nuevoEstado || this.estado === 'dead') return;
-                            
-                            // SOLUCIÓN POSE EN T (Eliminar transición suave para muerte)
-                            if (nuevoEstado === 'dead') {
-                                this.acciones.walk.stop(); // Parar instantáneamente
-                                this.acciones.attack.stop();
-                                this.acciones.death.reset().play();
-                            } else {
-                                this.acciones[this.estado].fadeOut(0.2);
-                                this.acciones[nuevoEstado].reset().fadeIn(0.2).play();
-                            }
-                            this.estado = nuevoEstado;
-                        }
-                    });
+                estadoCarga.innerText = "Generando Horda 1...";
+                for(let i=0; i<sistemaHordas.zombiesTotales; i++) {
+                    crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]);
                 }
 
-                estadoCarga.innerText = "¡Todo listo!";
-                btnIniciar.disabled = false;
+                estadoCarga.innerText = "¡TODO LISTO!";
+                document.getElementById('btnIniciar').disabled = false;
                 juegoListo = true;
-
-            } catch (error) {
-                console.error(error);
-                estadoCarga.innerText = "ERROR AL CARGAR";
-                estadoCarga.style.color = "red";
-            }
+            } catch (error) { console.error(error); document.getElementById('estadoCarga').innerText = "ERROR AL CARGAR"; }
         }
         iniciarCarga();
 
-        // --- DISPARO Y EFECTOS ---
+        // --- DISPARO ---
         const ray = new THREE.Raycaster();
-        
-        // Material del rastro de bala (v4)
-        const matDisparo = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2, transparent: true, opacity: 1 });
+        const matDisparo = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2, transparent: true, opacity: 1 });
+        const puntoDisparo = new THREE.Vector3();
 
         window.addEventListener('mousedown', () => {
-            if(!controles.isLocked || !juegoListo || !juegoEmpezado) return;
+            if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver) return;
 
             ray.setFromCamera(new THREE.Vector2(0, 0), camara);
             const objetivoBala = new THREE.Vector3();
-            
-            // Checar si le dimos a algo o si va al infinito
-            ray.ray.at(100, objetivoBala); // Posición a 100 metros por defecto
+            ray.ray.at(100, objetivoBala); 
 
             const meshesVivos = enemigos.filter(z => z.estado !== 'dead').map(z => z.mesh);
             const hits = ray.intersectObjects(meshesVivos, true); 
             
             if(hits.length > 0) {
-                objetivoBala.copy(hits[0].point); // Actualizar punto si hubo hit
-
+                objetivoBala.copy(hits[0].point);
                 let objetivo = hits[0].object;
                 while(objetivo.parent && objetivo.parent.type !== 'Scene') { objetivo = objetivo.parent; }
                 const zombieAtacado = enemigos.find(z => z.mesh === objetivo);
-                if(zombieAtacado) { zombieAtacado.cambiarEstado('dead'); }
+                
+                if(zombieAtacado) { 
+                    zombieAtacado.vida -= 1; // Le quitamos 1 de vida al zombie
+                    if(zombieAtacado.vida <= 0) {
+                        zombieAtacado.cambiarEstado('dead');
+                        sistemaHordas.zombiesRestantes--;
+                        actualizarHUD();
+                        
+                        // ¿SE ACABÓ LA HORDA?
+                        if(sistemaHordas.zombiesRestantes <= 0) {
+                            setTimeout(() => {
+                                sistemaHordas.nivel++;
+                                sistemaHordas.zombiesTotales += 5; // Salen 5 zombies más cada ronda
+                                sistemaHordas.zombiesRestantes = sistemaHordas.zombiesTotales;
+                                sistemaHordas.multiplicadorVidaZombie += 0.5; // Tienen más vida
+                                sistemaHordas.velocidadZombie += 0.005; // Corren más rápido
+                                
+                                for(let i=0; i<sistemaHordas.zombiesTotales; i++) {
+                                    crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]);
+                                }
+                                actualizarHUD();
+                            }, 3000); // Espera 3 segundos para la siguiente ronda
+                        }
+                    }
+                }
             }
 
-            // CREAR RASTRO DE BALA (EFECTO VISUAL v4)
             if (modeloIdle) {
-                puntoDisparo.setFromMatrixPosition(modeloIdle.matrixWorld); // Sale del arma
-                
+                puntoDisparo.setFromMatrixPosition(modeloIdle.matrixWorld); 
                 const geoDisparo = new THREE.BufferGeometry().setFromPoints([puntoDisparo, objetivoBala]);
-                const rastro = new THREE.Line(geoDisparo, matDisparo.clone()); // Usar clon para desvanecer
+                const rastro = new THREE.Line(geoDisparo, matDisparo.clone()); 
                 escena.add(rastro);
-
-                // Desvanecer y quitar el rastro súper rápido
-                setTimeout(() => {
-                    scene.remove(rastro); // Asegurarse de quitarlo (perdon, 'scene' es mi costumbre, corregido abajo)
-                    geoDisparo.dispose();
-                }, 50); // 50 milisegundos de vida
-                
-                // Correccion rápida: la variable es 'escena'
-                setTimeout(() => {
-                    escena.remove(rastro);
-                    rastro.material.dispose();
-                    geoDisparo.dispose();
-                }, 60);
+                setTimeout(() => { escena.remove(rastro); rastro.material.dispose(); geoDisparo.dispose(); }, 60);
             }
         });
 
-        // --- ANIMACIÓN ---
+        // --- BUCLE DE ANIMACIÓN ---
         function animar() {
             requestAnimationFrame(animar);
             const delta = reloj.getDelta();
@@ -318,101 +289,67 @@
             if(mezcladorIdle) mezcladorIdle.update(delta);
             if(mezcladorRun) mezcladorRun.update(delta);
             
-            // Actualizar Zombies solo si el juego empezó
-            if(juegoEmpezado) {
-                for(let z of enemigos) { z.mixer.update(delta); }
-            }
-
-            if(controles.isLocked && juegoListo && juegoEmpezado) {
+            if(juegoEmpezado && !gameOver) {
                 const prevPos = camara.position.clone();
                 const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
 
-                // Tus físicas originales
-                if(teclas.w) controles.moveForward(0.15);
-                if(teclas.s) controles.moveForward(-0.15);
-                if(teclas.a) controles.moveRight(-0.12);
-                if(teclas.d) controles.moveRight(0.12);
+                if(controles.isLocked) {
+                    if(teclas.w) controles.moveForward(0.15);
+                    if(teclas.s) controles.moveForward(-0.15);
+                    if(teclas.a) controles.moveRight(-0.12);
+                    if(teclas.d) controles.moveRight(0.12);
 
-                camara.position.y += velY;
-                if(!enSuelo) velY -= 0.015;
-                if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; }
+                    camara.position.y += velY;
+                    if(!enSuelo) velY -= 0.015;
+                    if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; }
 
-                // --- SISTEMA DE CÁMARA 1ª/3ª Persona y ARMA (v4) ---
-                if(modeloIdle && modeloRun) {
-                    const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
-                    const offsetArma = new THREE.Vector3(0.5, -1.6, -2.5); // Tu config original
-                    
-                    // Manejo de Tercera Persona
-                    if (vistaTerceraPersona) {
-                        // Mover la cámara detrás del jugador
-                        const offsetCamara = new THREE.Vector3(0, 1.5, 5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y);
-                        const posJugadorLogica = camara.position.clone();
-                        camara.position.add(offsetCamara);
-                        camara.lookAt(posJugadorLogica); // Mirar hacia donde estaba el jugador
+                    // VUELVE LA PRIMERA PERSONA PERFECTA
+                    if(modeloIdle && modeloRun) {
+                        const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
+                        const finalPos = camara.position.clone().add(new THREE.Vector3(0.5, -1.6, -2.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
+                        
+                        modeloIdle.position.copy(finalPos); modeloIdle.rotation.y = euler.y + Math.PI;
+                        modeloRun.position.copy(finalPos); modeloRun.rotation.y = euler.y + Math.PI;
+                        modeloIdle.visible = !moviendose || !enSuelo; modeloRun.visible = moviendose && enSuelo;
 
-                        // El arma sigue en su posición original relativa a la 'lógica' del jugador
-                        offsetArma.set(0, -1, -0.5); // Ajustar arma para que se vea en 3ª
-                    }
-
-                    const finalPosArma = vistaTerceraPersona ? camara.position.clone().add(new THREE.Vector3(0, -1, -2).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y)) : prevPos.clone(); // simplificado
-                    
-                    // Corrección simplificada para la posición del arma en 3ª persona flotante
-                    const eulerY = new THREE.Euler(0, euler.y, 0);
-                    let finalPos = prevPos.clone();
-                    
-                    if(!vistaTerceraPersona) {
-                        // 1ª Persona (Tu config exacta)
-                        finalPos.add(new THREE.Vector3(0.5, -1.6, -2.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
-                        modeloIdle.rotation.y = euler.y + Math.PI;
-                        modeloRun.rotation.y = euler.y + Math.PI;
-                    } else {
-                        // 3ª Persona (Flotante decorativa)
-                        finalPos.add(new THREE.Vector3(1, -0.5, -1.5).applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
-                        modeloIdle.rotation.y = euler.y + Math.PI;
-                        modeloRun.rotation.y = euler.y + Math.PI;
-                    }
-
-                    modeloIdle.position.copy(finalPos); 
-                    modeloRun.position.copy(finalPos); 
-
-                    modeloIdle.visible = !moviendose || !enSuelo;
-                    modeloRun.visible = moviendose && enSuelo;
-
-                    // Colisiones (usando prevPos que es la lógica del jugador)
-                    for(let z of enemigos) {
-                        if(z.estado === 'dead') continue;
-                        const dist = prevPos.distanceTo(new THREE.Vector3(z.mesh.position.x, prevPos.y, z.mesh.position.z));
-                        if(dist < z.mesh.radioH) {
-                            camara.position.copy(prevPos); // Bloquear movimiento si la cámara lógica colisiona
+                        for(let z of enemigos) {
+                            if(z.estado === 'dead') continue;
+                            const dist = camara.position.distanceTo(new THREE.Vector3(z.mesh.position.x, camara.position.y, z.mesh.position.z));
+                            if(dist < z.mesh.radioH) camara.position.copy(prevPos);
                         }
                     }
                 }
 
-                // Inteligencia Zombie (Siguen a la posición lógica, no a la cámara de 3ª)
-                const posJugadorLogica = prevPos.clone();
-                posJugadorLogica.y = 0; 
+                const posJugadorLogica = camara.position.clone(); posJugadorLogica.y = 0; 
+                let recibiendoDano = false;
 
                 for(let z of enemigos) {
+                    z.mixer.update(delta);
                     if(z.estado === 'dead') continue;
+
                     z.mesh.lookAt(posJugadorLogica);
                     const distancia = z.mesh.position.distanceTo(posJugadorLogica);
+
                     if(distancia > 2.5) {
-                        z.mesh.translateZ(0.04); 
+                        z.mesh.translateZ(sistemaHordas.velocidadZombie); 
                         z.cambiarEstado('walk');
                     } else {
                         z.cambiarEstado('attack');
+                        // SI EL ZOMBIE ESTÁ CERCA Y ATACANDO, TE QUITA VIDA
+                        jugador.vida -= 0.2; 
+                        recibiendoDano = true;
+                        actualizarHUD();
                     }
                 }
+                
+                // Efecto visual de sangre en la pantalla
+                document.getElementById('pantallaRoja').style.opacity = recibiendoDano ? "0.3" : "0";
             }
             renderizador.render(escena, camara);
         }
         animar();
 
-        window.addEventListener('resize', () => {
-            camara.aspect = window.innerWidth / window.innerHeight;
-            camara.updateProjectionMatrix();
-            renderizador.setSize(window.innerWidth, window.innerHeight);
-        });
+        window.addEventListener('resize', () => { camara.aspect = window.innerWidth / window.innerHeight; camara.updateProjectionMatrix(); renderizador.setSize(window.innerWidth, window.innerHeight); });
     </script>
 </body>
 </html>
