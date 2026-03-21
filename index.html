@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - v10 (Cámara Arreglada)</title>
+    <title>Nexus FPS - v12 (Tus Activos Reales)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         #menuInicio {
@@ -31,7 +31,7 @@
             border-radius: 50%; transform: translate(-50%, -50%); z-index: 10; pointer-events: none; display: none;
         }
         #hud {
-            position: absolute; bottom: 15px; left: 15px; color: #00ff00; font-size: 1.2rem; display: none;
+            position: absolute; bottom: 15px; left: 15px; color: #00ff00; font-size: 1.5rem; display: none;
             text-shadow: 2px 2px #000; font-weight: bold; pointer-events: none;
         }
         #pantallaRoja {
@@ -42,8 +42,8 @@
 </head>
 <body>
     <div id="menuInicio">
-        <h1 id="tituloMenu">NEXUS FPS: SUPERVIVENCIA</h1>
-        <p id="estadoCarga" style="color: #00ff00;">Cargando mundo...</p>
+        <h1 id="tituloMenu">NEXUS FPS: SURVIVAL</h1>
+        <p id="estadoCarga" style="color: #00ff00;">Descargando mundo...</p>
         <button id="btnIniciar" class="botonMenu" disabled>ENTRAR AL BOSQUE</button>
     </div>
     <div id="bloqueo">
@@ -53,7 +53,12 @@
     </div>
     <div id="pantallaRoja"></div>
     <div id="mira"></div>
-    <div id="hud">HP: <span id="uiVida">100</span> | HORDA: <span id="uiHorda">1</span> | ZOMBIES: <span id="uiZombies">15</span><span id="uiPerspectiva"> | 1ª PERS.</span></div>
+    <div id="hud">
+        HP: <span id="uiVida">100</span> | 
+        HORDA: <span id="uiHorda">1</span> | 
+        ZOMBIES: <span id="uiZombies">15</span>
+        <br><span style="font-size: 0.8rem;">[F] LINTERNA | [E] CURAR (Tercera persona activa en Mini-Moni)</span>
+    </div>
 
     <script type="importmap">
         {
@@ -77,13 +82,18 @@
         escena.fog = new THREE.FogExp2(0x1a1a24, 0.03); 
 
         const camara = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        // --- CÁMARA MINI-MONITO (v12) ---
+        // Una cámara que mira al personaje desde atrás
+        const camaraMoni = new THREE.PerspectiveCamera(60, 1, 0.1, 100); 
+
         const renderizador = new THREE.WebGLRenderer({ antialias: true });
         renderizador.setSize(window.innerWidth, window.innerHeight);
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        escena.add(new THREE.HemisphereLight(0x444455, 0x111122, 0.6)); 
-        const luna = new THREE.DirectionalLight(0x8888ff, 0.4); 
+        escena.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1)); // Luz ambiente más fuerte
+        const luna = new THREE.DirectionalLight(0x8888ff, 0.6); // Luz de luna tenue
         luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
 
         const loaderTex = new THREE.TextureLoader();
@@ -115,13 +125,16 @@
         generarEntorno(); 
 
         // --- SISTEMA DEL JUEGO ---
-        let jugador = { vida: 100, maxVida: 100, isThirdPerson: false };
+        let jugador = { vida: 100, maxVida: 100 };
         let sistemaHordas = { nivel: 1, zombiesRestantes: 15, zombiesTotales: 15, multiplicadorVidaZombie: 1, velocidadZombie: 0.04 };
         let datosZombiesGrupales = [];
 
         // Modelos
-        let mezcladorIdle, mezcladorRun; let modeloIdle, modeloRun; // Armas para 1ª persona
-        let modeloTP; let mixerTP; // Personaje completo para 3ª persona
+        let mezcladorIdle, mezcladorRun; let modeloIdle, modeloRun; // 1ra persona
+        let modeloTP; let mixerTP; let accionesTP = {}; // 3ra persona (Mini-Monito)
+
+        // BOTIQUINES
+        const listaBotiquines = [];
 
         let enemigos = [];
         const reloj = new THREE.Clock(); const fbxLoader = new FBXLoader();
@@ -139,16 +152,14 @@
         controles.addEventListener('unlock', () => { if(juegoEmpezado) bloqueo.style.display = 'flex'; });
 
         const teclas = { w:false, a:false, s:false, d:false }; let velY = 0, enSuelo = true;
-        
         document.addEventListener('keydown', e => {
             if(!controles.isLocked || !juegoEmpezado || gameOver) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
             
-            // --- CAMBIO DE PERSPECTIVA CON TECLA 'V' ---
-            if(e.code === 'KeyV') {
-                jugador.isThirdPerson = !jugador.isThirdPerson;
-                uiPerspectiva.innerText = jugador.isThirdPerson ? " | 3ª PERS. (V)" : " | 1ª PERS. (V)";
+            // --- CURARSE CON TECLA E ---
+            if(e.code === 'KeyE') {
+                curarJugador();
             }
         });
         document.addEventListener('keyup', e => { if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false; });
@@ -159,7 +170,7 @@
             uiZombies.innerText = sistemaHordas.zombiesRestantes;
             if(jugador.vida <= 0 && !gameOver) {
                 gameOver = true; controles.unlock();
-                textoPausa.innerText = "¡FUISTE DEVORADO!"; textoPausa.style.color = "red";
+                textoPausa.innerText = "¡TE COMIERON!"; textoPausa.style.color = "red";
                 btnContinuar.style.display = "none"; bloqueo.style.display = 'flex';
             }
         }
@@ -184,28 +195,78 @@
             });
         }
 
+        // --- SISTEMA DE CURACIÓN ---
+        function crearBotiquin(x, z) {
+            // Un cubo rojo con una cruz blanca
+            const geoCaja = new THREE.BoxGeometry(0.5, 0.4, 0.2);
+            const matRoja = new THREE.MeshStandardMaterial({color: 0xff0000});
+            const caja = new THREE.Mesh(geoCaja, matRoja);
+            caja.position.set(x, 0.2, z);
+            caja.castShadow = true;
+            escena.add(caja);
+            
+            // Cruz blanca
+            const geoCrossH = new THREE.BoxGeometry(0.1, 0.3, 0.05);
+            const geoCrossV = new THREE.BoxGeometry(0.3, 0.1, 0.05);
+            const matBlanca = new THREE.MeshStandardMaterial({color: 0xffffff});
+            const crossH = new THREE.Mesh(geoCrossH, matBlanca);
+            const crossV = new THREE.Mesh(geoCrossV, matBlanca);
+            crossH.position.set(0, 0, 0.11);
+            crossV.position.set(0, 0, 0.11);
+            caja.add(crossH); caja.add(crossV);
+
+            // Luz suave para que se vea
+            const luz = new THREE.PointLight(0xffcccc, 0.5, 2);
+            luz.position.set(0, 0.2, 0);
+            caja.add(luz);
+
+            listaBotiquines.push(caja);
+        }
+
+        function curarJugador() {
+            // Esta función se llama con la tecla E o cuando pasas por encima
+            // Por ahora, solo permitimos curar si hay HP < 100
+            if(jugador.vida < 100) {
+                // He curado +50. Puedes cambiar esto.
+                jugador.vida = Math.min(100, jugador.vida + 50);
+                actualizarHUD();
+                console.log("¡Healed +50HP!");
+            }
+        }
+
         async function iniciarCarga() {
             try {
                 const escalaNormal = 0.007; // Escala humana para zombies y 3ra persona
+                const escalaArmaFPS = 0.0005; // Escala pequeñita para 1ra persona
+
                 estadoCarga.innerText = "Cargando mundo y zombies...";
 
-                // 1. Cargamos al modelo para la 3ª Persona (Oculto al inicio)
-                const zTPWalk = await cargarFBX('./Z1_Walk.fbx');
-                modeloTP = SkeletonUtils.clone(zTPWalk);
-                modeloTP.scale.set(escalaNormal, escalaNormal, escalaNormal);
-                modeloTP.visible = false; 
-                escena.add(modeloTP);
-                mixerTP = new THREE.AnimationMixer(modeloTP);
-                mixerTP.clipAction(modeloTP.animations[0]).play();
-
-                // 2. Cargamos el arma/brazos para la 1ª persona
+                // 1. Cargamos el arma/brazos para la 1ª persona (VIEWMODEL)
                 modeloIdle = await cargarFBX('./Rifle Idle.fbx');
                 modeloRun = await cargarFBX('./correr.fbx');
-                const escalaArma = 0.0005; // Escala pequeñita para que quepa en pantalla
-                [modeloIdle, modeloRun].forEach(m => { m.scale.set(escalaArma, escalaArma, escalaArma); escena.add(m); });
+                [modeloIdle, modeloRun].forEach(m => { m.scale.set(escalaArmaFPS, escalaArmaFPS, escalaArmaFPS); escena.add(m); });
                 modeloRun.visible = false;
                 if(modeloIdle.animations.length) { mezcladorIdle = new THREE.AnimationMixer(modeloIdle); mezcladorIdle.clipAction(modeloIdle.animations[0]).play(); }
                 if(modeloRun.animations.length) { mezcladorRun = new THREE.AnimationMixer(modeloRun); mezcladorRun.clipAction(modeloRun.animations[0]).play(); }
+
+                // --- SOLUCIÓN TUS ACTIVOS REALES (v12) ---
+                // 2. Cargamos TU PERSONAJE REAL de cuerpo completo para la 3ª Persona (Mini-Monito)
+                // Usamos SkeletonUtils.clone del viewmodel Idle porque tú dijiste que ahí está el mono completo.
+                // Como no sé si son los mismos huesos, vamos a cargar los FBX de nuevo por seguridad para el TP
+                const tpIdleModel = await cargarFBX('./Rifle Idle.fbx');
+                const tpRunModel = await cargarFBX('./correr.fbx');
+                
+                modeloTP = tpIdleModel;
+                modeloTP.scale.set(escalaNormal, escalaNormal, escalaNormal); // Escala humana real
+                modeloTP.visible = true; // Empieza visible para el Mini-Moni
+                modeloTP.traverse(n => { if(n.isMesh) n.castShadow = true; }); // Sombras
+                escena.add(modeloTP);
+                
+                mixerTP = new THREE.AnimationMixer(modeloTP);
+                accionesTP.idle = mixerTP.clipAction(tpIdleModel.animations[0]);
+                accionesTP.run = mixerTP.clipAction(tpRunModel.animations[0]); // Aquí está el truco: usamos la animación del FBX correr
+                
+                accionesTP.idle.play(); // Empieza en Idle
 
                 // 3. Cargamos los Zombies
                 const nombresZombies = [
@@ -220,7 +281,12 @@
                 }
                 for(let i=0; i<sistemaHordas.zombiesTotales; i++) { crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]); }
 
-                estadoCarga.innerText = "¡PREPÁRATE!"; btnIniciar.disabled = false; juegoListo = true;
+                // 4. Cargamos Botiquines por el mapa
+                for(let i=0; i<5; i++) {
+                    crearBotiquin((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100);
+                }
+
+                estadoCarga.innerText = "¡A SOBREVIVIR CON TU MONO!"; btnIniciar.disabled = false; juegoListo = true;
             } catch (error) { console.error(error); estadoCarga.innerText = "ERROR AL CARGAR DATOS."; }
         }
         iniciarCarga();
@@ -230,14 +296,10 @@
         
         window.addEventListener('mousedown', () => {
             if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver) return;
-            
-            // Disparo desde el centro de la cámara siempre
             ray.setFromCamera(new THREE.Vector2(0, 0), camara);
             const objetivoBala = new THREE.Vector3(); ray.ray.at(100, objetivoBala); 
-            
             const meshesVivos = enemigos.filter(z => z.estado !== 'dead').map(z => z.mesh);
             const hits = ray.intersectObjects(meshesVivos, true); 
-            
             if(hits.length > 0) {
                 objetivoBala.copy(hits[0].point); let objetivo = hits[0].object;
                 while(objetivo.parent && objetivo.parent.type !== 'Scene') { objetivo = objetivo.parent; }
@@ -252,9 +314,7 @@
                     }
                 }
             }
-            
-            // Rastro visual del disparo (solo en 1ra persona para que se vea bien)
-            if (!jugador.isThirdPerson && modeloIdle) {
+            if (modeloIdle) {
                 const puntoDisparo = new THREE.Vector3();
                 puntoDisparo.setFromMatrixPosition(modeloIdle.matrixWorld); 
                 const geoDisparo = new THREE.BufferGeometry().setFromPoints([puntoDisparo, objetivoBala]);
@@ -262,6 +322,15 @@
                 setTimeout(() => { escena.remove(rastro); rastro.material.dispose(); geoDisparo.dispose(); }, 60);
             }
         });
+
+        // Función para cambiar animaciones suaves del TP (Mini-Monito)
+        let estadoTPActual = 'idle';
+        function cambiarAnimacionTP(nuevoEstado) {
+            if(nuevoEstado === estadoTPActual) return;
+            accionesTP[estadoTPActual].fadeOut(0.2);
+            accionesTP[nuevoEstado].reset().fadeIn(0.2).play();
+            estadoTPActual = nuevoEstado;
+        }
 
         function animar() {
             requestAnimationFrame(animar);
@@ -278,56 +347,57 @@
                 if(teclas.a) controles.moveRight(-0.12); if(teclas.d) controles.moveRight(0.12);
                 
                 camara.position.y += velY; if(!enSuelo) velY -= 0.015;
-                if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; } // Cámara siempre a 1.6m
+                if(camara.position.y <= 1.6) { camara.position.y = 1.6; velY = 0; enSuelo = true; } 
 
                 const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
 
-                // --- GESTIÓN VISUAL DE PERSPECTIVAS ---
-                if (!jugador.isThirdPerson) {
-                    // 1ª PERSONA: Elimina al monito completo, muestra el arma
-                    if(modeloTP) modeloTP.visible = false;
-                    mira.style.display = 'block';
-
-                    if(modeloIdle && modeloRun) {
-                        const fpsOffset = new THREE.Vector3(0.3, -0.4, -0.6); 
-                        const finalPos = camara.position.clone().add(fpsOffset.applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
-                        modeloIdle.position.copy(finalPos); modeloIdle.rotation.y = euler.y + Math.PI;
-                        modeloRun.position.copy(finalPos); modeloRun.rotation.y = euler.y + Math.PI;
-                        modeloIdle.visible = !moviendose || !enSuelo; modeloRun.visible = moviendose && enSuelo;
-                    }
-                } else {
-                    // 3ª PERSONA: Elimina el arma, muestra al monito frente a ti
-                    mira.style.display = 'none';
-                    if(modeloIdle) { modeloIdle.visible = false; modeloRun.visible = false; }
+                // --- GESTIÓN VISUAL Y ANIMACIONES (v12) ---
+                mira.style.display = 'block';
+                
+                // Actualizar posición y animación del monito TP REAL (Mini-Monito)
+                if(modeloTP) {
+                    const posPies = camara.position.clone(); posPies.y = 0;
+                    modeloTP.position.copy(posPies);
+                    modeloTP.rotation.y = euler.y + Math.PI;
                     
-                    if (modeloTP) {
-                        modeloTP.visible = true;
-                        // MAGIA: En lugar de mover la cámara hacia atrás (que causaba que salieras volando),
-                        // ponemos al personaje 2.5 metros ADELANTE de la cámara.
-                        const offsetTPS = new THREE.Vector3(0, -1.6, -2.5); 
-                        const posMono = camara.position.clone().add(offsetTPS.applyAxisAngle(new THREE.Vector3(0, 1, 0), euler.y));
-                        modeloTP.position.copy(posMono);
-                        modeloTP.rotation.y = euler.y + Math.PI; 
+                    // Cambiar animación suave según el movimiento
+                    if(moviendose && enSuelo) {
+                        cambiarAnimacionTP('run');
+                    } else {
+                        cambiarAnimacionTP('idle');
+                    }
+                }
+
+                // Actualizar posición del viewmodel arma (1ra persona)
+                if(modeloIdle && modeloRun) {
+                    const fpsOffset = new THREE.Vector3(0.3, -0.4, -0.6); 
+                    const finalPos = camara.position.clone().add(fpsOffset.applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
+                    modeloIdle.position.copy(finalPos); modeloIdle.rotation.y = euler.y + Math.PI;
+                    modeloRun.position.copy(finalPos); modeloRun.rotation.y = euler.y + Math.PI;
+                    modeloIdle.visible = !moviendose || !enSuelo; modeloRun.visible = moviendose && enSuelo;
+                }
+
+                // --- COLISIONES CON BOTIQUINES ---
+                for(let i=listaBotiquines.length - 1; i>=0; i--) {
+                    const bot = listaBotiquines[i];
+                    if(jugador.vida < 100 && camara.position.distanceTo(bot.position) < 1.0) {
+                        curarJugador();
+                        escena.remove(bot);
+                        listaBotiquines.splice(i, 1);
                     }
                 }
 
                 // --- INTELIGENCIA ZOMBIE ---
-                // Para que los zombies vayan hacia donde estás parado en el suelo
-                const posSueloJugador = camara.position.clone();
-                posSueloJugador.y = 0;
+                const logicalPlayerPos = camara.position.clone();
+                logicalPlayerPos.y = 0; 
                 
-                if (jugador.isThirdPerson && modeloTP) {
-                    posSueloJugador.copy(modeloTP.position);
-                    posSueloJugador.y = 0;
-                }
-
                 let recibiendoDano = false;
                 for(let z of enemigos) {
                     z.mixer.update(delta); if(z.estado === 'dead') continue;
-                    z.mesh.lookAt(posSueloJugador);
-                    const distancia = z.mesh.position.distanceTo(posSueloJugador);
+                    z.mesh.lookAt(logicalPlayerPos);
+                    const distancia = z.mesh.position.distanceTo(logicalPlayerPos);
                     
-                    if(distancia > 2.0) { 
+                    if(distancia > 2.5) { 
                         z.mesh.translateZ(sistemaHordas.velocidadZombie); 
                         z.cambiarEstado('walk'); 
                     } else { 
@@ -339,7 +409,34 @@
                 }
                 pantallaRoja.style.opacity = recibiendoDano ? "0.3" : "0";
             }
+            // --- RENDERIZADO DIVIDIDO (Mini-Monito) ---
+            renderizador.setViewport(0, 0, window.innerWidth, window.innerHeight);
+            renderizador.setScissor(0, 0, window.innerWidth, window.innerHeight);
+            renderizador.setScissorTest(false);
             renderizador.render(escena, camara);
+
+            if(juegoEmpezado && !gameOver) {
+                const moniW = window.innerWidth / 3; 
+                const moniH = moniW / camaraMoni.aspect;
+                const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camara.quaternion);
+                const offsetTPS = new THREE.Vector3(0, 2, 4); 
+                const posLogicaJugador = camara.position.clone();
+                const moniPos = posLogicaJugador.add(offsetTPS.applyAxisAngle(new THREE.Vector3(0,1,0), euler.y));
+                camaraMoni.position.copy(moniPos);
+                camaraMoni.lookAt(new THREE.Vector3(posLogicaJugador.x, 1, posLogicaJugador.z)); 
+                renderizador.setViewport(window.innerWidth - moniW - 10, window.innerHeight - moniH - 10, moniW, moniH);
+                renderizador.setScissor(window.innerWidth - moniW - 10, window.innerHeight - moniH - 10, moniW, moniH);
+                renderizador.setScissorTest(true); 
+
+                // Ocultar viewmodels en el mini
+                if(modeloIdle) modeloIdle.visible = false;
+                if(modeloRun) modeloRun.visible = false;
+                
+                renderizador.render(escena, camaraMoni);
+                
+                if(modeloIdle) modeloIdle.visible = true;
+                if(modeloRun) modeloRun.visible = true;
+            }
         }
         animar();
 
