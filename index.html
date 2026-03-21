@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - v13 (Noche y Tercera Persona Real)</title>
+    <title>Nexus FPS - v14 (Corrección de Errores)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         #menuInicio {
@@ -43,7 +43,7 @@
 <body>
     <div id="menuInicio">
         <h1 id="tituloMenu">NEXUS FPS: SURVIVAL</h1>
-        <p id="estadoCarga" style="color: #00ff00;">Descargando oscuridad...</p>
+        <p id="estadoCarga" style="color: #00ff00;">Cargando mundo...</p>
         <button id="btnIniciar" class="botonMenu" disabled>ENTRAR AL BOSQUE</button>
     </div>
     <div id="bloqueo">
@@ -57,7 +57,7 @@
         HP: <span id="uiVida">100</span> | 
         HORDA: <span id="uiHorda">1</span> | 
         ZOMBIES: <span id="uiZombies">15</span>
-        <br><span style="font-size: 0.8rem;">[F] LINTERNA | [E] CURAR | [V] CAMBIAR CÁMARA (1ra/3ra)</span>
+        <br><span style="font-size: 0.8rem;">[F] LINTERNA | [V] CAMBIAR CÁMARA (1ra/3ra)</span>
     </div>
 
     <script type="importmap">
@@ -76,12 +76,11 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-        // --- ENTORNO Y NIEBLA NOCTURNA (RESTURADO) ---
+        // --- ILUMINACIÓN RESTAURADA (v12) ---
         const escena = new THREE.Scene();
-        escena.background = new THREE.Color(0x0a0a10); // Cielo oscuro
-        escena.fog = new THREE.FogExp2(0x0a0a10, 0.06); // Niebla densa negra/azulada
+        escena.background = new THREE.Color(0x1a1a24); 
+        escena.fog = new THREE.FogExp2(0x1a1a24, 0.03); 
 
-        // --- SISTEMA DE DOBLE CÁMARA (Para evitar bugs de movimiento) ---
         const camaraControles = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const camaraRender = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
@@ -90,22 +89,22 @@
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        escena.add(new THREE.HemisphereLight(0x222233, 0x111122, 0.5)); // Luz ambiente baja
-        const luna = new THREE.DirectionalLight(0x5555aa, 0.3); // Luz de luna tenue
+        escena.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1)); 
+        const luna = new THREE.DirectionalLight(0x8888ff, 0.6); 
         luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
 
         const loaderTex = new THREE.TextureLoader();
         const texPiso = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/aerial_grass_rock.png?height=760&quality=95');
         texPiso.wrapS = texPiso.wrapT = THREE.RepeatWrapping; texPiso.repeat.set(30, 30);
-        const piso = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ map: texPiso, color: 0x333333 }));
+        const piso = new THREE.Mesh(new THREE.PlaneGeometry(150, 150), new THREE.MeshStandardMaterial({ map: texPiso, color: 0x555555 }));
         piso.rotation.x = -Math.PI / 2; piso.receiveShadow = true; escena.add(piso);
 
         // --- GENERADOR DE BOSQUE ---
         function generarEntorno() {
             const geoTronco = new THREE.CylinderGeometry(0.6, 0.8, 4, 8);
-            const matTronco = new THREE.MeshStandardMaterial({color: 0x1a0f0a}); 
+            const matTronco = new THREE.MeshStandardMaterial({color: 0x2d1a11}); 
             const geoHojas = new THREE.ConeGeometry(3, 7, 8);
-            const matHojas = new THREE.MeshStandardMaterial({color: 0x0a1a0a}); 
+            const matHojas = new THREE.MeshStandardMaterial({color: 0x1a331a}); 
 
             for(let i=0; i<100; i++) {
                 const x = (Math.random() - 0.5) * 140; const z = (Math.random() - 0.5) * 140;
@@ -117,22 +116,25 @@
             for(let i=0; i<15; i++) {
                 const x = (Math.random() - 0.5) * 120; const z = (Math.random() - 0.5) * 120;
                 if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; 
-                const auto = new THREE.Mesh(geoAuto, new THREE.MeshStandardMaterial({color: 0x3c1b1b})); auto.position.set(x, 0.6, z); auto.rotation.y = Math.random() * Math.PI; escena.add(auto);
+                const auto = new THREE.Mesh(geoAuto, new THREE.MeshStandardMaterial({color: 0x5c2b2b})); auto.position.set(x, 0.6, z); auto.rotation.y = Math.random() * Math.PI; escena.add(auto);
             }
         }
         generarEntorno(); 
 
-        // --- SISTEMA DEL JUEGO ---
         let jugador = { vida: 100, maxVida: 100 };
         let sistemaHordas = { nivel: 1, zombiesRestantes: 15, zombiesTotales: 15, multiplicadorVidaZombie: 1, velocidadZombie: 0.04 };
         let datosZombiesGrupales = [];
 
-        // Modelos
         let mezcladorIdle, mezcladorRun; let modeloIdle, modeloRun; 
         let modeloTP; let mixerTP; let accionesTP = {}; 
-        let esTerceraPersona = false; // Variable mágica para la tecla V
+        let esTerceraPersona = false; 
 
-        const listaBotiquines = [];
+        // --- ¡AQUÍ ESTÁ LA SOLUCIÓN AL PERSONAJE ENTERRADO! ---
+        // Si tu modelo tiene el centro en el estómago, pon este valor en 1.0 (aprox).
+        // Si flota en el aire, ponlo en -0.5 o menos. Juega con este número.
+        const AJUSTE_ALTURA_Y = 0; 
+        // --------------------------------------------------------
+
         let enemigos = [];
         const reloj = new THREE.Clock(); const fbxLoader = new FBXLoader();
         let juegoListo = false; let juegoEmpezado = false; let gameOver = false;
@@ -153,8 +155,7 @@
             if(!controles.isLocked || !juegoEmpezado || gameOver) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
-            if(e.code === 'KeyE') curarJugador();
-            if(e.code === 'KeyV') esTerceraPersona = !esTerceraPersona; // Aquí cambiamos de cámara
+            if(e.code === 'KeyV') esTerceraPersona = !esTerceraPersona; 
         });
         document.addEventListener('keyup', e => { if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false; });
 
@@ -189,29 +190,12 @@
             });
         }
 
-        function crearBotiquin(x, z) {
-            const geoCaja = new THREE.BoxGeometry(0.5, 0.4, 0.2);
-            const matRoja = new THREE.MeshStandardMaterial({color: 0xff0000});
-            const caja = new THREE.Mesh(geoCaja, matRoja); caja.position.set(x, 0.2, z); caja.castShadow = true; escena.add(caja);
-            const geoCrossH = new THREE.BoxGeometry(0.1, 0.3, 0.05); const geoCrossV = new THREE.BoxGeometry(0.3, 0.1, 0.05);
-            const matBlanca = new THREE.MeshStandardMaterial({color: 0xffffff});
-            const crossH = new THREE.Mesh(geoCrossH, matBlanca); const crossV = new THREE.Mesh(geoCrossV, matBlanca);
-            crossH.position.set(0, 0, 0.11); crossV.position.set(0, 0, 0.11); caja.add(crossH); caja.add(crossV);
-            const luz = new THREE.PointLight(0xffcccc, 0.5, 2); luz.position.set(0, 0.2, 0); caja.add(luz);
-            listaBotiquines.push(caja);
-        }
-
-        function curarJugador() {
-            if(jugador.vida < 100) { jugador.vida = Math.min(100, jugador.vida + 50); actualizarHUD(); }
-        }
-
         async function iniciarCarga() {
             try {
                 const escalaNormal = 0.007; 
                 const escalaArmaFPS = 0.0005; 
                 estadoCarga.innerText = "Cargando mundo y zombies...";
 
-                // 1. Armas 1ra persona
                 modeloIdle = await cargarFBX('./Rifle Idle.fbx');
                 modeloRun = await cargarFBX('./correr.fbx');
                 [modeloIdle, modeloRun].forEach(m => { m.scale.set(escalaArmaFPS, escalaArmaFPS, escalaArmaFPS); escena.add(m); });
@@ -219,12 +203,11 @@
                 if(modeloIdle.animations.length) { mezcladorIdle = new THREE.AnimationMixer(modeloIdle); mezcladorIdle.clipAction(modeloIdle.animations[0]).play(); }
                 if(modeloRun.animations.length) { mezcladorRun = new THREE.AnimationMixer(modeloRun); mezcladorRun.clipAction(modeloRun.animations[0]).play(); }
 
-                // 2. Personaje 3ra persona (El tuyo real)
                 const tpIdleModel = await cargarFBX('./Rifle Idle.fbx');
                 const tpRunModel = await cargarFBX('./correr.fbx');
                 modeloTP = tpIdleModel;
                 modeloTP.scale.set(escalaNormal, escalaNormal, escalaNormal); 
-                modeloTP.visible = false; // Empieza oculto porque inicias en 1ra persona
+                modeloTP.visible = false; 
                 modeloTP.traverse(n => { if(n.isMesh) n.castShadow = true; }); 
                 escena.add(modeloTP);
                 
@@ -233,7 +216,6 @@
                 accionesTP.run = mixerTP.clipAction(tpRunModel.animations[0]); 
                 accionesTP.idle.play(); 
 
-                // 3. Zombies
                 const nombresZombies = [
                     { walk: './Z1_Walk.fbx', attack: './Z1_attack.fbx', death: './Z1_Death.fbx' },
                     { walk: './Z2_Walk.fbx', attack: './Z2_attack.fbx', death: './Z2_Death.fbx' },
@@ -246,9 +228,6 @@
                 }
                 for(let i=0; i<sistemaHordas.zombiesTotales; i++) { crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]); }
 
-                // 4. Botiquines
-                for(let i=0; i<5; i++) crearBotiquin((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100);
-
                 estadoCarga.innerText = "¡PREPARADO!"; btnIniciar.disabled = false; juegoListo = true;
             } catch (error) { console.error(error); estadoCarga.innerText = "ERROR AL CARGAR DATOS."; }
         }
@@ -259,8 +238,11 @@
         
         window.addEventListener('mousedown', () => {
             if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver) return;
-            // El disparo siempre sale desde la cámara real del jugador, incluso en 3ra persona
-            ray.setFromCamera(new THREE.Vector2(0, 0), camaraControles);
+            
+            // EL DISPARO AHORA USA LA CÁMARA CORRECTA PARA SER PRECISO
+            const camaraActiva = esTerceraPersona ? camaraRender : camaraControles;
+            ray.setFromCamera(new THREE.Vector2(0, 0), camaraActiva);
+            
             const objetivoBala = new THREE.Vector3(); ray.ray.at(100, objetivoBala); 
             const meshesVivos = enemigos.filter(z => z.estado !== 'dead').map(z => z.mesh);
             const hits = ray.intersectObjects(meshesVivos, true); 
@@ -314,28 +296,24 @@
 
                 const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camaraControles.quaternion);
 
-                // --- MAGIA DE LA CÁMARA (1ra vs 3ra Persona) ---
-                // Igualamos la cámara visual a la cámara física
                 camaraRender.position.copy(camaraControles.position);
                 camaraRender.quaternion.copy(camaraControles.quaternion);
 
                 if(esTerceraPersona) {
-                    // Si presionaste V: Movemos la cámara visual hacia atrás y arriba
-                    camaraRender.translateZ(3.5); 
+                    camaraRender.translateZ(3.0); 
                     camaraRender.position.y += 0.5;
                     
                     if(modeloTP) {
                         modeloTP.visible = true;
-                        const posPies = camaraControles.position.clone(); posPies.y = 0;
+                        const posPies = camaraControles.position.clone(); 
+                        posPies.y = AJUSTE_ALTURA_Y; // Altura corregida aquí
                         modeloTP.position.copy(posPies);
                         modeloTP.rotation.y = euler.y + Math.PI;
                         if(moviendose && enSuelo) cambiarAnimacionTP('run'); else cambiarAnimacionTP('idle');
                     }
-                    // Ocultamos los brazos
                     if(modeloIdle) modeloIdle.visible = false;
                     if(modeloRun) modeloRun.visible = false;
                 } else {
-                    // Primera Persona normal
                     if(modeloTP) modeloTP.visible = false;
                     if(modeloIdle && modeloRun) {
                         const fpsOffset = new THREE.Vector3(0.3, -0.4, -0.6); 
@@ -347,14 +325,6 @@
                     }
                 }
 
-                // Botiquines
-                for(let i=listaBotiquines.length - 1; i>=0; i--) {
-                    if(jugador.vida < 100 && camaraControles.position.distanceTo(listaBotiquines[i].position) < 1.0) {
-                        curarJugador(); escena.remove(listaBotiquines[i]); listaBotiquines.splice(i, 1);
-                    }
-                }
-
-                // Zombies
                 const logicalPlayerPos = camaraControles.position.clone(); logicalPlayerPos.y = 0; 
                 let recibiendoDano = false;
                 for(let z of enemigos) {
@@ -369,7 +339,6 @@
                 pantallaRoja.style.opacity = recibiendoDano ? "0.3" : "0";
             }
             
-            // Renderizamos solo la cámara principal (Ya no hay mini pantallas divididas)
             renderizador.render(escena, camaraRender);
         }
         animar();
