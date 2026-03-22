@@ -370,7 +370,7 @@
         const ray = new THREE.Raycaster();
         const matDisparo = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 }); 
         
-        window.addEventListener('mousedown', () => {
+       window.addEventListener('mousedown', () => {
             if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver) return;
             if(municion.recargando) return; 
             if(municion.actual <= 0) {
@@ -381,18 +381,36 @@
             municion.actual--; actualizarHUD();
             ray.setFromCamera(new THREE.Vector2(0, 0), camaraRender);
             const objetivoBala = new THREE.Vector3(); ray.ray.at(100, objetivoBala); 
-            const hits = ray.intersectObjects(enemigos.filter(z => z.estado !== 'dead').map(z => z.mesh), true); 
+            
+            // Solo disparamos a zombies que NO estén muertos
+            const zombiesVivos = enemigos.filter(z => z.estado !== 'dead');
+            const hits = ray.intersectObjects(zombiesVivos.map(z => z.mesh), true); 
             
             if(hits.length > 0) {
                 objetivoBala.copy(hits[0].point); let objetivo = hits[0].object;
                 while(objetivo.parent && objetivo.parent.type !== 'Scene') { objetivo = objetivo.parent; }
                 const zombieAtacado = enemigos.find(z => z.mesh === objetivo);
-                if(zombieAtacado) { 
+                
+                if(zombieAtacado && zombieAtacado.estado !== 'dead') { 
                     zombieAtacado.vida -= 1;
                     if(zombieAtacado.vida <= 0) {
-                        zombieAtacado.cambiarEstado('dead'); sistemaHordas.zombiesRestantes--; actualizarHUD();
+                        zombieAtacado.cambiarEstado('dead'); 
+                        sistemaHordas.zombiesRestantes--; 
+                        actualizarHUD();
+
+                        // Hacemos que el cadáver desaparezca después de 5 segundos para limpiar memoria
+                        setTimeout(() => {
+                            escena.remove(zombieAtacado.mesh);
+                        }, 5000);
+
+                        // LÓGICA DE CAMBIO DE HORDA
                         if(sistemaHordas.zombiesRestantes <= 0) {
+                            mensajeRecarga.innerText = "¡HORDA ELIMINADA! PREPÁRATE..."; 
+                            mensajeRecarga.style.color = "#00ff00"; 
+                            mensajeRecarga.style.display = "block";
+                            
                             setTimeout(() => { 
+                                mensajeRecarga.style.display = "none";
                                 sistemaHordas.nivel++; 
                                 sistemaHordas.zombiesTotales += 5; 
                                 sistemaHordas.zombiesRestantes = sistemaHordas.zombiesTotales; 
@@ -405,7 +423,7 @@
                                     crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)], esTrepador); 
                                 } 
                                 actualizarHUD(); 
-                            }, 3000); 
+                            }, 4000); 
                         }
                     }
                 }
@@ -418,7 +436,6 @@
                 setTimeout(() => { escena.remove(rastro); rastro.material.dispose(); geoDisparo.dispose(); }, 80); 
             }
         });
-
         let estadoTPActual = 'idle';
         function cambiarAnimacionTP(nuevoEstado) {
             if(nuevoEstado === estadoTPActual) return;
