@@ -238,14 +238,7 @@
         function crearZombie(tipoElegido, puedeEscalar = false) {
             const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
             
-            if (puedeEscalar) {
-                clonMesh.traverse(child => {
-                    if (child.isMesh) {
-                        child.material = child.material.clone();
-                        child.material.color.setHex(0xff7777); 
-                    }
-                });
-            }
+            
 
             let posX, posZ, tocandoObjeto;
             do {
