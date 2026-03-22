@@ -240,14 +240,33 @@
 
         function crearZombie(tipoElegido) {
             const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
-            clonMesh.position.set((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120);
+            
+            // --- NUEVO: Buscar un lugar seguro donde aparecer ---
+            let posX, posZ, tocandoObjeto;
+            do {
+                posX = (Math.random() - 0.5) * 120;
+                posZ = (Math.random() - 0.5) * 120;
+                tocandoObjeto = false;
+                
+                // Revisar si las coordenadas caen dentro de un obstáculo
+                for(let caja of cajasColision) {
+                    if(posX > caja.min.x - 1 && posX < caja.max.x + 1 && 
+                       posZ > caja.min.z - 1 && posZ < caja.max.z + 1) {
+                        tocandoObjeto = true; 
+                        break;
+                    }
+                }
+            } while(tocandoObjeto); // Si cayó adentro de algo, busca otras coordenadas
+
+            clonMesh.position.set(posX, 0, posZ);
             escena.add(clonMesh);
+            
             const mixer = new THREE.AnimationMixer(clonMesh);
             const acciones = { walk: mixer.clipAction(tipoElegido.animaciones.walk), attack: mixer.clipAction(tipoElegido.animaciones.attack), death: mixer.clipAction(tipoElegido.animaciones.death) };
             acciones.death.setLoop(THREE.LoopOnce); acciones.death.clampWhenFinished = true; acciones.walk.play();
             enemigos.push({
                 mesh: clonMesh, mixer: mixer, acciones: acciones, estado: 'walk', vida: 3 * sistemaHordas.multiplicadorVidaZombie,
-                ultimoAtaque: 0, // <--- TEMPORIZADOR DE ATAQUE
+                ultimoAtaque: 0,
                 cambiarEstado: function(nuevoEstado) {
                     if(this.estado === nuevoEstado || this.estado === 'dead') return;
                     if (nuevoEstado === 'dead') { this.acciones.walk.stop(); this.acciones.attack.stop(); this.acciones.death.reset().play(); }
@@ -256,7 +275,6 @@
                 }
             });
         }
-
         async function iniciarCarga() {
             try {
                 estadoCarga.innerText = "Cargando autos y entorno...";
