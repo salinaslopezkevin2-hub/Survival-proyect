@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus FPS - v21 (Movimiento Fluido y Zombies Inteligentes)</title>
+    <title>Nexus FPS - v22 (Balance de Daño y Corrección de Spawn)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         #menuInicio {
@@ -143,14 +143,12 @@
                 if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; 
                 const tronco = new THREE.Mesh(geoTronco, matTronco); tronco.position.set(x, 2, z); escena.add(tronco);
                 const hojas = new THREE.Mesh(geoHojas, matHojas); hojas.position.set(x, 7.5, z); escena.add(hojas);
-                
-                const cajaTronco = new THREE.Box3().setFromObject(tronco);
-                cajasColision.push(cajaTronco);
+                cajasColision.push(new THREE.Box3().setFromObject(tronco));
             }
         }
         generarArboles();
 
-        // --- SISTEMA DE HORDAS MEJORADO ---
+        // --- SISTEMA DE HORDAS Y DAÑO BALANCEADO ---
         let jugador = { vida: 100, maxVida: 100 };
         let municion = { actual: 30, maxima: 30, recargando: false }; 
         let sistemaHordas = { 
@@ -158,8 +156,8 @@
             zombiesRestantes: 15, 
             zombiesTotales: 15, 
             multiplicadorVidaZombie: 1, 
-            velocidadZombie: 0.07, // <--- ZOMBIES MÁS RÁPIDOS DESDE EL INICIO
-            danoZombie: 15         // <--- DAÑO BASE POR GOLPE
+            velocidadZombie: 0.07, 
+            danoZombie: 5 // <--- DAÑO BASE AJUSTADO A 5
         };
         let datosZombiesGrupales = [];
 
@@ -179,8 +177,9 @@
         
         btnSalir.addEventListener('click', () => {
             jugador.vida = 100; municion.actual = municion.maxima; municion.recargando = false;
+            // REINICIO DE VALORES POR DEFECTO
             sistemaHordas.nivel = 1; sistemaHordas.zombiesTotales = 15; sistemaHordas.zombiesRestantes = 15;
-            sistemaHordas.multiplicadorVidaZombie = 1; sistemaHordas.velocidadZombie = 0.07; sistemaHordas.danoZombie = 15;
+            sistemaHordas.multiplicadorVidaZombie = 1; sistemaHordas.velocidadZombie = 0.07; sistemaHordas.danoZombie = 5;
             
             enemigos.forEach(z => escena.remove(z.mesh));
             enemigos = [];
@@ -241,14 +240,20 @@
         function crearZombie(tipoElegido) {
             const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
             
-            // --- NUEVO: Buscar un lugar seguro donde aparecer ---
+            // --- SPAWN INTELIGENTE (NO APARECE ADENTRO DE OBJETOS) ---
             let posX, posZ, tocandoObjeto;
             do {
                 posX = (Math.random() - 0.5) * 120;
                 posZ = (Math.random() - 0.5) * 120;
                 tocandoObjeto = false;
                 
-                // Revisar si las coordenadas caen dentro de un obstáculo
+                // Evitar generar en un radio de 10 unidades del jugador (para no aparecer en tu cara)
+                if(Math.abs(posX) < 10 && Math.abs(posZ) < 10) {
+                    tocandoObjeto = true;
+                    continue;
+                }
+
+                // Revisar si las coordenadas chocan con una caja de colisión
                 for(let caja of cajasColision) {
                     if(posX > caja.min.x - 1 && posX < caja.max.x + 1 && 
                        posZ > caja.min.z - 1 && posZ < caja.max.z + 1) {
@@ -256,7 +261,7 @@
                         break;
                     }
                 }
-            } while(tocandoObjeto); // Si cayó adentro de algo, busca otras coordenadas
+            } while(tocandoObjeto);
 
             clonMesh.position.set(posX, 0, posZ);
             escena.add(clonMesh);
@@ -266,7 +271,7 @@
             acciones.death.setLoop(THREE.LoopOnce); acciones.death.clampWhenFinished = true; acciones.walk.play();
             enemigos.push({
                 mesh: clonMesh, mixer: mixer, acciones: acciones, estado: 'walk', vida: 3 * sistemaHordas.multiplicadorVidaZombie,
-                ultimoAtaque: 0,
+                ultimoAtaque: 0, 
                 cambiarEstado: function(nuevoEstado) {
                     if(this.estado === nuevoEstado || this.estado === 'dead') return;
                     if (nuevoEstado === 'dead') { this.acciones.walk.stop(); this.acciones.attack.stop(); this.acciones.death.reset().play(); }
@@ -275,12 +280,13 @@
                 }
             });
         }
+
         async function iniciarCarga() {
             try {
                 estadoCarga.innerText = "Cargando autos y entorno...";
                 
                 let modeloAutoBase;
-                const escalaAuto = 0.1; 
+                const escalaAuto = 0.1; // <--- ESCALA AJUSTADA PARA TU AUTO
                 
                 try {
                     const gltfData = await new Promise((resolve, reject) => { gltfLoader.load('./Carro.glb', resolve, undefined, reject); });
@@ -359,13 +365,12 @@
                         zombieAtacado.cambiarEstado('dead'); sistemaHordas.zombiesRestantes--; actualizarHUD();
                         if(sistemaHordas.zombiesRestantes <= 0) {
                             setTimeout(() => { 
-                                // --- AUMENTO DE DIFICULTAD POR HORDA ---
                                 sistemaHordas.nivel++; 
                                 sistemaHordas.zombiesTotales += 5; 
                                 sistemaHordas.zombiesRestantes = sistemaHordas.zombiesTotales; 
                                 sistemaHordas.multiplicadorVidaZombie += 0.5; 
-                                sistemaHordas.velocidadZombie += 0.015; // Más rápidos
-                                sistemaHordas.danoZombie += 5;          // Más fuertes
+                                sistemaHordas.velocidadZombie += 0.015; 
+                                sistemaHordas.danoZombie += 2; // <--- AUMENTO DE DAÑO EN 2 POR HORDA
                                 
                                 for(let i=0; i<sistemaHordas.zombiesTotales; i++) { crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)]); } 
                                 actualizarHUD(); 
@@ -389,7 +394,6 @@
             accionesTP[estadoTPActual].fadeOut(0.2); accionesTP[nuevoEstado].reset().fadeIn(0.2).play(); estadoTPActual = nuevoEstado;
         }
 
-        // --- FUNCIÓN DE COLISIÓN DESLIZANTE ---
         function checarColisionXZ(posicion, radio) {
             const piesY = posicion.y - 1.6;
             let alturaSuelo = 0;
@@ -413,8 +417,6 @@
                 if(mixerTP) mixerTP.update(delta);
 
                 const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
-                
-                // --- MOVIMIENTO FLUIDO (SLIDING) PARA EL JUGADOR ---
                 const posOriginalX = camaraControles.position.x;
                 const posOriginalZ = camaraControles.position.z;
 
@@ -424,21 +426,17 @@
                 const nuevaX = camaraControles.position.x;
                 const nuevaZ = camaraControles.position.z;
 
-                // Checar colisión solo en X
                 camaraControles.position.z = posOriginalZ; 
                 let colX = checarColisionXZ(camaraControles.position, 0.4);
                 if(colX.choca || camaraControles.position.x > 68 || camaraControles.position.x < -68) { camaraControles.position.x = posOriginalX; }
 
-                // Checar colisión solo en Z
                 camaraControles.position.x = nuevaX; 
                 camaraControles.position.z = nuevaZ; 
                 let colZ = checarColisionXZ(camaraControles.position, 0.4);
                 if(colZ.choca || camaraControles.position.z > 68 || camaraControles.position.z < -68) { camaraControles.position.z = posOriginalZ; }
                 
-                // Restaurar X por si rebotó en el chequeo de Z
                 if(colX.choca || camaraControles.position.x > 68 || camaraControles.position.x < -68) { camaraControles.position.x = posOriginalX; }
 
-                // --- SALTO Y GRAVEDAD ---
                 let chequeoSuelo = checarColisionXZ(camaraControles.position, 0.4);
                 camaraControles.position.y += velY; 
                 velY -= 0.015; 
@@ -461,22 +459,17 @@
                 const posJugadorLogica = camaraControles.position.clone(); posJugadorLogica.y = 0; 
                 let recibiendoDano = false;
                 
-                // --- SEGUIMIENTO INTELIGENTE PARA ZOMBIES (SLIDING) ---
                 for(let z of enemigos) {
                     z.mixer.update(delta); if(z.estado === 'dead') continue;
                     z.mesh.lookAt(posJugadorLogica);
                     const dist3D = z.mesh.position.distanceTo(camaraControles.position);
 
                     if(dist3D > 2.5) { 
-                        // Intento de mover en Z (hacia adelante del zombie)
                         const dirZombie = new THREE.Vector3(); z.mesh.getWorldDirection(dirZombie);
-                        
-                        // Mover X del zombie
                         const zOriX = z.mesh.position.x;
                         z.mesh.position.x += dirZombie.x * sistemaHordas.velocidadZombie;
                         if(checarColisionXZ(z.mesh.position, 0.5).choca) z.mesh.position.x = zOriX;
 
-                        // Mover Z del zombie
                         const zOriZ = z.mesh.position.z;
                         z.mesh.position.z += dirZombie.z * sistemaHordas.velocidadZombie;
                         if(checarColisionXZ(z.mesh.position, 0.5).choca) z.mesh.position.z = zOriZ;
@@ -484,7 +477,6 @@
                         z.cambiarEstado('walk'); 
                     } else { 
                         z.cambiarEstado('attack'); 
-                        // --- DAÑO SINCRONIZADO (CADA 1.5 SEGUNDOS) ---
                         if(tiempoActual - z.ultimoAtaque > 1.5) {
                             jugador.vida -= sistemaHordas.danoZombie; 
                             z.ultimoAtaque = tiempoActual;
