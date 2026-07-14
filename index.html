@@ -221,7 +221,7 @@
             if(!controles.isLocked || !juegoEmpezado || gameOver) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
-            if(e.code === 'KeyF') { linternaEncendida = !linternaEncendida; linterna.intensity = linternaEncendida ? 0.5 : 0; }
+            if(e.code === 'KeyF') { linternaEncendida = !linternaEncendida; linterna.intensity = linternaEncendida ? 30 : 0; }
             
             if(e.code === 'KeyR' && municion.actual < municion.maxima && !municion.recargando) {
                 municion.recargando = true;
