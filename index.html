@@ -318,7 +318,7 @@
                     const gltfDataArbol = await new Promise((resolve, reject) => { gltfLoader.load('./arbol.glb', resolve, undefined, reject); });
                     modeloArbolBase = gltfDataArbol.scene;
                     
-                    const escalaArbol = 1.0; 
+                    const escalaArbol = 0.1; 
                     modeloArbolBase.scale.set(escalaArbol, escalaArbol, escalaArbol);
                     modeloArbolBase.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
                 } catch (e) {
