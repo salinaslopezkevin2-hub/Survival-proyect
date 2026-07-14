@@ -117,8 +117,8 @@
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        escena.add(new THREE.HemisphereLight(0x333344, 0x111118, 0.3)); 
-        const luna = new THREE.DirectionalLight(0x555588, 0.2); 
+        escena.add(new THREE.HemisphereLight(0x333344, 0x111118, 0.6)); 
+        const luna = new THREE.DirectionalLight(0x555588, 0.4); 
         luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
 
         const linterna = new THREE.SpotLight(0xffffff, 0); 
