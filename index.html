@@ -117,8 +117,8 @@
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        escena.add(new THREE.HemisphereLight(0x333344, 0x111118, 0.6)); 
-        const luna = new THREE.DirectionalLight(0x555588, 0.4); 
+        escena.add(new THREE.HemisphereLight(0x333344, 0x111118, 0.3)); 
+        const luna = new THREE.DirectionalLight(0x555588, 0.8); 
         luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
 
         const linterna = new THREE.SpotLight(0xffffff, 0); 
@@ -221,7 +221,7 @@
             if(!controles.isLocked || !juegoEmpezado || gameOver) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
-            if(e.code === 'KeyF') { linternaEncendida = !linternaEncendida; linterna.intensity = linternaEncendida ? 30 : 0; }
+            if(e.code === 'KeyF') { linternaEncendida = !linternaEncendida; linterna.intensity = linternaEncendida ? 0.5 : 0; }
             
             if(e.code === 'KeyR' && municion.actual < municion.maxima && !municion.recargando) {
                 municion.recargando = true;
