@@ -146,27 +146,6 @@
         const muroEste = new THREE.Mesh(geoMuro, matMuro); muroEste.position.set(70, 5, 0); muroEste.rotation.y = Math.PI / 2; escena.add(muroEste);
         const muroOeste = new THREE.Mesh(geoMuro, matMuro); muroOeste.position.set(-70, 5, 0); muroOeste.rotation.y = Math.PI / 2; escena.add(muroOeste);
 
-        function generarArboles() {
-            const texTronco = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/bark_brown_02.png?height=512&quality=80');
-            texTronco.wrapS = texTronco.wrapT = THREE.RepeatWrapping; texTronco.repeat.set(1, 3);
-            const texHojas = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/leaves_forest_ground.png?height=512&quality=80');
-            texHojas.wrapS = texHojas.wrapT = THREE.RepeatWrapping; texHojas.repeat.set(4, 4);
-
-            const geoTronco = new THREE.CylinderGeometry(0.6, 0.8, 4, 8);
-            const matTronco = new THREE.MeshStandardMaterial({map: texTronco, color: 0x666666}); 
-            const geoHojas = new THREE.ConeGeometry(3, 7, 8);
-            const matHojas = new THREE.MeshStandardMaterial({map: texHojas, color: 0x334433}); 
-
-            for(let i=0; i<100; i++) {
-                const x = (Math.random() - 0.5) * 130; const z = (Math.random() - 0.5) * 130;
-                if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; 
-                const tronco = new THREE.Mesh(geoTronco, matTronco); tronco.position.set(x, 2, z); escena.add(tronco);
-                const hojas = new THREE.Mesh(geoHojas, matHojas); hojas.position.set(x, 7.5, z); escena.add(hojas);
-                cajasColision.push(new THREE.Box3().setFromObject(tronco));
-            }
-        }
-        generarArboles();
-
         let jugador = { vida: 100, maxVida: 100 };
         let municion = { actual: 30, maxima: 30, recargando: false }; 
         let sistemaHordas = { 
@@ -257,8 +236,6 @@
         function crearZombie(tipoElegido, puedeEscalar = false) {
             const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
             
-            
-
             let posX, posZ, tocandoObjeto;
             do {
                 posX = (Math.random() - 0.5) * 120;
@@ -278,7 +255,6 @@
             
             const mixer = new THREE.AnimationMixer(clonMesh);
             
-            // AGREGAMOS LA ACCIÓN CLIMB AL MIXER
             const acciones = { 
                 walk: mixer.clipAction(tipoElegido.animaciones.walk), 
                 attack: mixer.clipAction(tipoElegido.animaciones.attack), 
@@ -335,6 +311,39 @@
                     cajasColision.push(new THREE.Box3().setFromObject(autoClon));
                 }
 
+                // NUEVO CÓDIGO DE ÁRBOLES 3D
+                estadoCarga.innerText = "Cargando árboles del bosque...";
+                let modeloArbolBase;
+                try {
+                    const gltfDataArbol = await new Promise((resolve, reject) => { gltfLoader.load('./arbol.glb', resolve, undefined, reject); });
+                    modeloArbolBase = gltfDataArbol.scene;
+                    
+                    const escalaArbol = 1.0; 
+                    modeloArbolBase.scale.set(escalaArbol, escalaArbol, escalaArbol);
+                    modeloArbolBase.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
+                } catch (e) {
+                    console.warn("No se encontró arbol.glb, usando árbol de repuesto");
+                    modeloArbolBase = new THREE.Mesh(new THREE.BoxGeometry(1, 5, 1), new THREE.MeshStandardMaterial({color: 0x334433}));
+                }
+
+                for(let i=0; i<100; i++) {
+                    const x = (Math.random() - 0.5) * 130; const z = (Math.random() - 0.5) * 130;
+                    if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; 
+                    const arbolClon = SkeletonUtils.clone(modeloArbolBase);
+                    
+                    arbolClon.position.set(x, 0, z); 
+                    if(!modeloArbolBase.isObject3D) { arbolClon.position.y = 0.6; } 
+                    arbolClon.rotation.y = Math.random() * Math.PI; 
+                    escena.add(arbolClon);
+                    
+                    const cajaArbol = new THREE.Box3().setFromObject(arbolClon);
+                    const centro = new THREE.Vector3(); cajaArbol.getCenter(centro);
+                    cajaArbol.min.x = centro.x - 0.5; cajaArbol.max.x = centro.x + 0.5;
+                    cajaArbol.min.z = centro.z - 0.5; cajaArbol.max.z = centro.z + 0.5;
+                    cajasColision.push(cajaArbol);
+                }
+                // FIN DEL CÓDIGO DE ÁRBOLES 3D
+
                 estadoCarga.innerText = "Cargando personajes y zombies...";
                 const escalaNormal = 0.007; 
                 const tpIdleModel = await cargarFBX('./Rifle Idle.fbx');
@@ -347,7 +356,6 @@
                 accionesTP.idle = mixerTP.clipAction(tpIdleModel.animations[0]);
                 accionesTP.run = mixerTP.clipAction(tpRunModel.animations[0]); accionesTP.idle.play(); 
 
-                // --- AQUÍ ESTÁ LA NUEVA LISTA CON TUS NOMBRES EXACTOS ---
                 const nombresZombies = [
                     { walk: './Z1_Walk.fbx', attack: './Z1_attack.fbx', death: './Z1_Death.fbx', climb: './Z1_Escalar.fbx' },
                     { walk: './Z2_Walk.fbx', attack: './Z2_attack.fbx', death: './Z2_Death.fbx', climb: './Z2_Escalar.fbx' },
@@ -358,7 +366,7 @@
                     const w = await cargarFBX(nombresZombies[i].walk); 
                     const a = await cargarFBX(nombresZombies[i].attack); 
                     const d = await cargarFBX(nombresZombies[i].death);
-                    const c = await cargarFBX(nombresZombies[i].climb); // Cargamos la animación de escalar
+                    const c = await cargarFBX(nombresZombies[i].climb); 
 
                     w.scale.set(escalaNormal, escalaNormal, escalaNormal);
                     datosZombiesGrupales.push({ 
@@ -367,7 +375,7 @@
                             walk: w.animations[0], 
                             attack: a.animations[0], 
                             death: d.animations[0],
-                            climb: c.animations[0] // La guardamos
+                            climb: c.animations[0] 
                         } 
                     });
                 }
@@ -394,7 +402,6 @@
             ray.setFromCamera(new THREE.Vector2(0, 0), camaraRender);
             const objetivoBala = new THREE.Vector3(); ray.ray.at(100, objetivoBala); 
             
-            // Solo disparamos a zombies que NO estén muertos
             const zombiesVivos = enemigos.filter(z => z.estado !== 'dead');
             const hits = ray.intersectObjects(zombiesVivos.map(z => z.mesh), true); 
             
@@ -410,12 +417,8 @@
                         sistemaHordas.zombiesRestantes--; 
                         actualizarHUD();
 
-                        // Hacemos que el cadáver desaparezca después de 5 segundos para limpiar memoria
-                        setTimeout(() => {
-                            escena.remove(zombieAtacado.mesh);
-                        }, 5000);
+                        setTimeout(() => { escena.remove(zombieAtacado.mesh); }, 5000);
 
-                        // LÓGICA DE CAMBIO DE HORDA
                         if(sistemaHordas.zombiesRestantes <= 0) {
                             mensajeRecarga.innerText = "¡HORDA ELIMINADA! PREPÁRATE..."; 
                             mensajeRecarga.style.color = "#00ff00"; 
@@ -550,13 +553,10 @@
                                 z.mesh.position.z -= dirZombie.z * (sistemaHordas.velocidadZombie * 1.1);
                                 z.cambiarEstado('walk');
                             } else {
-                                // --- NUEVA LÓGICA DE ANIMACIÓN DE ESCALAR ---
                                 if (alturaPiso > z.mesh.position.y + 0.1) {
-                                    // Está subiendo, usa la animación de escalar
                                     z.mesh.position.y += (alturaPiso - z.mesh.position.y) * 0.15;
                                     z.cambiarEstado('climb'); 
                                 } else {
-                                    // Ya subió o está en el piso plano, vuelve a caminar
                                     z.mesh.position.y += (alturaPiso - z.mesh.position.y) * 0.15;
                                     z.cambiarEstado('walk');
                                 }
