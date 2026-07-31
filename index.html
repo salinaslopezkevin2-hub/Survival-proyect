@@ -1,133 +1,152 @@
+<!-- Proyecto Survival Base[cite: 3] -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <title>Project Survival</title>
-    <meta name="description" content="Project Survival is a relentless survival game with constant attacks and unimaginable hordes. Survive the zombie hordes in this web game. Let's see if you can survive.">
-    <meta name="keywords" content="zombie game, survival horror, web game, indie game">
+    <title>Proyect survival</title>
+    <meta name="description" content="Proyect survival es un juego de supervivencia sin descanso alguno, ataques constantes y hordas inimaginables. Sobrevive a las hordas de zombies en este juego web. Veamos si serás capaz de sobrevivir.">
+    <meta name="keywords" content="juego de zombies, survival horror, juego web, juego indie">
     <meta name="google-site-verification" content="C-5KcjyGUxRoSUdb30b3-P4rJUXUC3rl2KfH9JCpK5A" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         
-        /* Modificado para ser 2D atractivo */
-        #menuInicio {
+        /* Contenedor principal de menús (Fondo) */
+        #contenedorMenus {
             position: absolute; width: 100%; height: 100%;
-            /* Fondo 2D Atractivo (Gradiente oscuro con textura de líneas retro) */
-            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px),
-                        radial-gradient(circle at center, #4a0000 0%, #000000 100%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.9)), 
+                        url('https://cdn.polyhaven.com/asset_img/primary/aerial_grass_rock.png?height=760&quality=95');
+            background-size: cover; display: flex; flex-direction: column; justify-content: center; align-items: center;
             color: #00ff00; z-index: 100; text-align: center; text-shadow: 0 0 10px #000;
         }
 
-        .menuSecundario {
-            position: absolute; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); /* Fondo oscuro liso para submenús */
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: #00ff00; z-index: 100; text-align: center; text-shadow: 0 0 10px #000;
-            backdrop-filter: blur(5px);
+        /* Paneles modales */
+        .panel {
+            background: rgba(0, 20, 0, 0.85); border: 2px solid #00ff00; border-radius: 10px;
+            padding: 30px; display: none; flex-direction: column; align-items: center;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3); min-width: 300px;
         }
-        
-        #tituloMenu { font-size: 4rem; margin-bottom: 20px; color: #ff3333; text-shadow: 0 0 20px #ff0000; }
-        .tituloSecundario { font-size: 2.5rem; margin-bottom: 20px; color: #00ff00; }
+        .panel.activo { display: flex; }
+
+        #tituloMenu { font-size: 3rem; margin-bottom: 20px; color: #ff3333; text-shadow: 0 0 20px #ff0000; }
         
         .botonMenu {
             background: rgba(0, 255, 0, 0.1); border: 2px solid #00ff00; color: #00ff00;
-            padding: 12px 30px; font-size: 1.2rem; cursor: pointer; margin: 8px;
-            transition: all 0.3s; font-family: inherit; font-weight: bold; min-width: 250px;
+            padding: 12px 30px; font-size: 1.2rem; cursor: pointer; margin: 8px; width: 100%;
+            transition: all 0.3s; font-family: inherit; font-weight: bold; text-transform: uppercase;
         }
         .botonMenu:hover { background: rgba(0, 255, 0, 0.4); box-shadow: 0 0 20px #00ff00; }
-        .botonMenu:disabled { opacity: 0.5; cursor: not-allowed; }
+        .botonMenu:disabled { opacity: 0.5; cursor: not-allowed; border-color: #555; color: #555;}
         
-        .btnPeligro { border-color: #ff3333; color: #ff3333; }
-        .btnPeligro:hover { background: rgba(255, 51, 51, 0.3); box-shadow: 0 0 20px #ff3333; }
-        .btnSeleccionado { background: rgba(0, 255, 0, 0.6); color: white; }
-
-        #bloqueo {
+        #bloqueo, #menuVictoria {
             position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.8);
             display: none; flex-direction: column; justify-content: center; align-items: center;
             color: white; z-index: 20; text-align: center;
         }
+
         #mira {
             position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid #ff0000;
             border-radius: 50%; transform: translate(-50%, -50%); z-index: 10; pointer-events: none; display: none;
         }
+        
         #hud {
             position: absolute; bottom: 15px; left: 15px; color: #00ff00; font-size: 1.5rem; display: none;
             text-shadow: 2px 2px #000; font-weight: bold; pointer-events: none;
         }
+        
+        /* Batería Linterna */
+        #bateriaContenedor {
+            width: 150px; height: 15px; border: 2px solid #00ff00; margin-top: 5px; background: rgba(0,0,0,0.5);
+        }
+        #bateriaNivel {
+            width: 100%; height: 100%; background: #00ff00; transition: width 0.1s, background-color 0.3s;
+        }
+
         #pantallaRoja {
             position: absolute; width: 100%; height: 100%;
             background: radial-gradient(circle, transparent 60%, rgba(255, 0, 0, 0.7) 100%);
             opacity: 0; pointer-events: none; z-index: 5; transition: opacity 0.2s; display: none;
         }
+        
         #mensajeRecarga {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             color: #ffff00; font-size: 1.2rem; font-weight: bold; display: none; text-shadow: 2px 2px 5px #000; z-index: 15;
             pointer-events: none; text-align: center; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 5px;
         }
-        /* Contenedor para las barras de vida de los zombies */
-        #contenedorBarrasZombies {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8;
-        }
     </style>
 </head>
 <body>
-    <!-- Menú Principal (Ahora totalmente en Inglés y 2D) -->
-    <div id="menuInicio">
+    <div style="position: absolute; z-index: -1; color: white; padding: 20px; width: 100%;">
+        <h1>Proyect Survival - Juego de Supervivencia Web</h1>
+        <p>Juega gratis a este increíble juego de disparos FPS. Sobrevive a las hordas de muertos vivientes, incluyendo a los temibles zombies trepadores que escalan obstáculos para atraparte en el bosque.</p>
+        <h2>Controles del juego:</h2>
+        <ul>
+            <li>WASD - Mover al personaje</li>
+            <li>Mouse - Apuntar y disparar</li>
+            <li>F - Encender o apagar la linterna</li>
+            <li>R - Recargar</li>
+            <li>ESPACIO - Saltar</li>
+        </ul>
+        <p>Gana créditos eliminando zombies, sobrevive ronda tras ronda y demuestra cuánto tiempo puedes mantenerte con vida. Entra al bosque y prepárate para la infección Z.</p>
+    </div>
+
+    <!-- Menús Principal -->
+    <div id="contenedorMenus">
         <h1 id="tituloMenu">NEXUS FPS: SURVIVAL</h1>
-        <p id="estadoCarga" style="color: #00ff00;">Loading game files...</p>
-        <div id="contenedorBotonesPrincipal" style="display: none; flex-direction: column;">
-            <button id="btnIniciar" class="botonMenu">ENTER FOREST</button>
-            <button id="btnMenuDificultad" class="botonMenu">DIFFICULTY: NORMAL</button>
-            <button id="btnMenuAjustes" class="botonMenu">SETTINGS</button>
+        <p id="estadoCarga" style="color: #00ff00;">Cargando archivos del juego...</p>
+        
+        <!-- Panel Principal -->
+        <div id="panelPrincipal" class="panel activo">
+            <button id="btnJugar" class="botonMenu" disabled data-lang="jugar">JUGAR</button>
+            <button id="btnAjustes" class="botonMenu" data-lang="ajustes">AJUSTES</button>
         </div>
-    </div>
 
-    <!-- Menú de Ajustes -->
-    <div id="menuAjustes" class="menuSecundario" style="display: none;">
-        <h2 class="tituloSecundario">SETTINGS</h2>
-        <button id="btnToggleSonido" class="botonMenu">SOUND: ON</button>
-        <button id="btnToggleIdioma" class="botonMenu">LANGUAGE: ENGLISH</button>
-        <button id="btnCerrarAjustes" class="botonMenu btnPeligro" style="margin-top: 30px;">BACK</button>
-    </div>
+        <!-- Panel Dificultad -->
+        <div id="panelDificultad" class="panel">
+            <h2 data-lang="selDificultad">Selecciona Dificultad</h2>
+            <button class="botonMenu btnDif" data-dif="0" data-lang="facil">FÁCIL</button>
+            <button class="botonMenu btnDif" data-dif="1" data-lang="medio">MEDIO</button>
+            <button class="botonMenu btnDif" data-dif="2" data-lang="dificil">DIFÍCIL</button>
+            <button class="botonMenu btnDif" data-dif="3" data-lang="extremo" style="color: #ff3333; border-color: #ff3333;">EXTREMO</button>
+            <button id="btnVolverPrincipal" class="botonMenu" style="margin-top: 20px;" data-lang="volver">VOLVER</button>
+        </div>
 
-    <!-- Menú de Dificultad -->
-    <div id="menuDificultad" class="menuSecundario" style="display: none;">
-        <h2 class="tituloSecundario">SELECT DIFFICULTY</h2>
-        <button class="botonMenu btnSetDiff" data-diff="facil">EASY</button>
-        <button class="botonMenu btnSetDiff btnSeleccionado" data-diff="medio">NORMAL</button>
-        <button class="botonMenu btnSetDiff" data-diff="dificil">HARD</button>
-        <button class="botonMenu btnSetDiff" data-diff="extremo">EXTREME</button>
-        <button id="btnCerrarDificultad" class="botonMenu btnPeligro" style="margin-top: 30px;">CONFIRM & BACK</button>
-    </div>
-
-    <!-- Menú de Victoria -->
-    <div id="menuVictoria" class="menuSecundario" style="display: none; z-index: 200;">
-        <h1 style="font-size: 4rem; color: #00ffff; text-shadow: 0 0 20px #00ffff;">YOU WIN!</h1>
-        <p style="font-size: 1.5rem; margin-bottom: 30px; color: white;">You survived 5 hordes on <span id="textoDiffWin">NORMAL</span> difficulty.</p>
-        <button id="btnRejugar" class="botonMenu">PLAY AGAIN</button>
-        <button id="btnVolverMenuWin" class="botonMenu btnPeligro">RETURN TO MAIN MENU</button>
+        <!-- Panel Ajustes -->
+        <div id="panelAjustes" class="panel">
+            <h2 data-lang="ajustes">AJUSTES</h2>
+            <button id="btnIdioma" class="botonMenu">IDIOMA: ESPAÑOL</button>
+            <button id="btnSonido" class="botonMenu">SONIDO: ON</button>
+            <button id="btnVolverAjustes" class="botonMenu" style="margin-top: 20px;" data-lang="volver">VOLVER</button>
+        </div>
     </div>
 
     <!-- Menú de Pausa / Derrota -->
     <div id="bloqueo">
-        <h1 id="textoPausa">PAUSED</h1>
-        <button id="btnContinuar" class="botonMenu">RESUME GAME</button>
-        <button id="btnSalir" class="botonMenu btnPeligro">QUIT TO MENU</button>
+        <h1 id="textoPausa" data-lang="pausa">PAUSA</h1>
+        <button id="btnContinuar" class="botonMenu" data-lang="continuar">VOLVER AL JUEGO</button>
+        <button id="btnSalir" class="botonMenu" style="border-color: red; color: red;" data-lang="salirMenu">SALIR AL MENÚ</button>
+    </div>
+
+    <!-- Menú de Victoria -->
+    <div id="menuVictoria">
+        <h1 style="color: #00ff00; font-size: 3rem; text-shadow: 0 0 20px #00ff00;" data-lang="victoria">¡HAS GANADO!</h1>
+        <p data-lang="sobreviviste" style="font-size: 1.2rem;">Sobreviviste a las 5 hordas.</p>
+        <button id="btnRejugar" class="botonMenu" data-lang="jugarDeNuevo">VOLVER A JUGAR NIVEL</button>
+        <button id="btnSalirVictoria" class="botonMenu" style="border-color: red; color: red;" data-lang="salirMenu">SALIR AL MENÚ</button>
     </div>
 
     <div id="pantallaRoja"></div>
-    <div id="mensajeRecarga">RELOADING...</div>
+    <div id="mensajeRecarga" data-lang="recargando">RECARGANDO...</div>
     <div id="mira"></div>
-    <div id="contenedorBarrasZombies"></div>
     <div id="hud">
-        HP: <span id="uiVida">100</span> | 
-        AMMO: <span id="uiBalas" style="color: #ffff00;">30</span>/30 | 
-        BATT: <span id="uiBateria" style="color: #00ffff;">100</span>% |
-        WAVE: <span id="uiHorda">1</span>/5 | 
-        ZOMBIES: <span id="uiZombies">15</span>
-        <br><span style="font-size: 0.8rem;">[WASD] Move | [SPACE] Jump | [F] Flashlight | [R] Reload | [CLICK] Shoot</span>
+        <span data-lang="hudHP">HP:</span> <span id="uiVida">100</span> | 
+        <span data-lang="hudBalas">BALAS:</span> <span id="uiBalas" style="color: #ffff00;">30</span>/30 | 
+        <span data-lang="hudHorda">HORDA:</span> <span id="uiHorda">1</span>/5 | 
+        <span data-lang="hudZombies">ZOMBIES:</span> <span id="uiZombies">15</span>
+        <div id="bateriaContenedor">
+            <div id="bateriaNivel"></div>
+        </div>
+        <br><span style="font-size: 0.8rem;" data-lang="hudControles">[WASD] Mover | [ESPACIO] Saltar | [F] Linterna | [R] Recargar | [CLICK] Disparar</span>
     </div>
 
     <script type="importmap">
@@ -147,93 +166,64 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-        // --- SISTEMA DE DIFICULTADES Y HORDAS ---
-        const configuracionDificultades = {
-            facil: { nombre: 'EASY', baseZombies: 10, baseDano: 2, baseVidaZ: 0.8, baseVelocidad: 0.05, 
-                     escalaZombies: 2, escalaDano: 1, escalaVidaZ: 0.2, escalaVelocidad: 0.005 },
-            medio: { nombre: 'NORMAL', baseZombies: 15, baseDano: 5, baseVidaZ: 1.0, baseVelocidad: 0.07, 
-                     escalaZombies: 4, escalaDano: 2, escalaVidaZ: 0.4, escalaVelocidad: 0.010 },
-            dificil: { nombre: 'HARD', baseZombies: 20, baseDano: 10, baseVidaZ: 1.5, baseVelocidad: 0.09, 
-                       escalaZombies: 6, escalaDano: 3, escalaVidaZ: 0.6, escalaVelocidad: 0.015 },
-            extremo: { nombre: 'EXTREME', baseZombies: 25, baseDano: 15, baseVidaZ: 2.0, baseVelocidad: 0.12, 
-                       escalaZombies: 8, escalaDano: 5, escalaVidaZ: 0.8, escalaVelocidad: 0.020 }
+        // --- SISTEMA DE IDIOMAS Y AJUSTES ---
+        let idiomaActual = 'es';
+        let sonidoActivado = true;
+        const textos = {
+            es: {
+                jugar: "JUGAR", ajustes: "AJUSTES", selDificultad: "Selecciona Dificultad",
+                facil: "FÁCIL", medio: "MEDIO", dificil: "DIFÍCIL", extremo: "EXTREMO",
+                volver: "VOLVER", pausa: "PAUSA", continuar: "VOLVER AL JUEGO", salirMenu: "SALIR AL MENÚ",
+                victoria: "¡HAS GANADO!", sobreviviste: "Sobreviviste a las 5 hordas.", jugarDeNuevo: "VOLVER A JUGAR NIVEL",
+                recargando: "RECARGANDO...", hudHP: "HP:", hudBalas: "BALAS:", hudHorda: "HORDA:", hudZombies: "ZOMBIES:",
+                hudControles: "[WASD] Mover | [ESPACIO] Saltar | [F] Linterna | [R] Recargar | [CLICK] Disparar",
+                cargaListo: "¡PREPARADO!", cargaError: "ERROR AL CARGAR DATOS.",
+                hordaEliminada: "¡HORDA ELIMINADA! PREPÁRATE...", pideRecargar: "[ PRESIONA 'R' PARA RECARGAR ]",
+                teComieron: "¡TE COMIERON!"
+            },
+            en: {
+                jugar: "PLAY", ajustes: "SETTINGS", selDificultad: "Select Difficulty",
+                facil: "EASY", medio: "MEDIUM", dificil: "HARD", extremo: "EXTREME",
+                volver: "BACK", pausa: "PAUSED", continuar: "RESUME GAME", salirMenu: "QUIT TO MENU",
+                victoria: "YOU WIN!", sobreviviste: "You survived all 5 hordes.", jugarDeNuevo: "PLAY LEVEL AGAIN",
+                recargando: "RELOADING...", hudHP: "HP:", hudBalas: "AMMO:", hudHorda: "HORDE:", hudZombies: "ZOMBIES:",
+                hudControles: "[WASD] Move | [SPACE] Jump | [F] Flashlight | [R] Reload | [CLICK] Shoot",
+                cargaListo: "READY!", cargaError: "ERROR LOADING DATA.",
+                hordaEliminada: "HORDE CLEARED! GET READY...", pideRecargar: "[ PRESS 'R' TO RELOAD ]",
+                teComieron: "YOU WERE EATEN!"
+            }
         };
-        
-        let difActual = 'medio';
-        let configActiva = configuracionDificultades[difActual];
 
-        let jugador = { vida: 100, maxVida: 100 };
-        let municion = { actual: 30, maxima: 30, recargando: false }; 
-        let bateriaLinterna = 100;
-        
-        let sistemaHordas = { 
-            nivel: 1, 
-            zombiesRestantes: configActiva.baseZombies, 
-            zombiesTotales: configActiva.baseZombies, 
-            multiplicadorVidaZombie: configActiva.baseVidaZ, 
-            velocidadZombie: configActiva.baseVelocidad, 
-            danoZombie: configActiva.baseDano 
-        };
-
-        // --- REFERENCIAS DE MENÚS Y BOTONES ---
-        const uiDivs = {
-            menuInicio: document.getElementById('menuInicio'),
-            menuAjustes: document.getElementById('menuAjustes'),
-            menuDificultad: document.getElementById('menuDificultad'),
-            menuVictoria: document.getElementById('menuVictoria'),
-            bloqueo: document.getElementById('bloqueo'),
-            contenedorBotonesPrincipal: document.getElementById('contenedorBotonesPrincipal'),
-            contenedorBarras: document.getElementById('contenedorBarrasZombies')
-        };
-        
-        // --- LOGICA DE BOTONES DEL MENÚ ---
-        document.getElementById('btnMenuAjustes').addEventListener('click', () => {
-            uiDivs.menuInicio.style.display = 'none'; uiDivs.menuAjustes.style.display = 'flex';
-        });
-        document.getElementById('btnCerrarAjustes').addEventListener('click', () => {
-            uiDivs.menuAjustes.style.display = 'none'; uiDivs.menuInicio.style.display = 'flex';
-        });
-        
-        document.getElementById('btnMenuDificultad').addEventListener('click', () => {
-            uiDivs.menuInicio.style.display = 'none'; uiDivs.menuDificultad.style.display = 'flex';
-        });
-        document.getElementById('btnCerrarDificultad').addEventListener('click', () => {
-            uiDivs.menuDificultad.style.display = 'none'; uiDivs.menuInicio.style.display = 'flex';
-        });
-
-        const botonesDiff = document.querySelectorAll('.btnSetDiff');
-        botonesDiff.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                botonesDiff.forEach(b => b.classList.remove('btnSeleccionado'));
-                e.target.classList.add('btnSeleccionado');
-                difActual = e.target.getAttribute('data-diff');
-                configActiva = configuracionDificultades[difActual];
-                document.getElementById('btnMenuDificultad').innerText = `DIFFICULTY: ${configActiva.nombre}`;
-                document.getElementById('textoDiffWin').innerText = configActiva.nombre;
-                aplicarDificultad();
+        function actualizarTextos() {
+            document.querySelectorAll('[data-lang]').forEach(el => {
+                const clave = el.getAttribute('data-lang');
+                if(textos[idiomaActual][clave]) el.innerText = textos[idiomaActual][clave];
             });
-        });
+            document.getElementById('btnIdioma').innerText = idiomaActual === 'es' ? "IDIOMA: ESPAÑOL" : "LANGUAGE: ENGLISH";
+            document.getElementById('btnSonido').innerText = (idiomaActual === 'es' ? "SONIDO: " : "SOUND: ") + (sonidoActivado ? "ON" : "OFF");
+        }
 
-        let sonidoActivo = true;
-        document.getElementById('btnToggleSonido').addEventListener('click', (e) => {
-            sonidoActivo = !sonidoActivo; e.target.innerText = sonidoActivo ? "SOUND: ON" : "SOUND: OFF";
-        });
-        document.getElementById('btnToggleIdioma').addEventListener('click', (e) => {
-            // El idioma ya está fijado en Inglés como se solicitó.
-            e.target.innerText = "LANGUAGE: ENGLISH";
-        });
-
-        // --- ESCENA THREE.JS Y CICLO DE DÍA/NOCHE ---
-        const escena = new THREE.Scene();
+        // Navegación Menús
+        const navPanel = (ocultar, mostrar) => {
+            document.getElementById(ocultar).classList.remove('activo');
+            document.getElementById(mostrar).classList.add('activo');
+        };
+        document.getElementById('btnJugar').addEventListener('click', () => navPanel('panelPrincipal', 'panelDificultad'));
+        document.getElementById('btnAjustes').addEventListener('click', () => navPanel('panelPrincipal', 'panelAjustes'));
+        document.getElementById('btnVolverPrincipal').addEventListener('click', () => navPanel('panelDificultad', 'panelPrincipal'));
+        document.getElementById('btnVolverAjustes').addEventListener('click', () => navPanel('panelAjustes', 'panelPrincipal'));
         
-        // Colores para el ciclo de día y noche
-        const colorDia = new THREE.Color(0x87CEEB);
-        const colorNoche = new THREE.Color(0x0a0a10);
-        const luzCieloDia = new THREE.Color(0xffffff);
-        const luzCieloNoche = new THREE.Color(0x333344);
+        document.getElementById('btnIdioma').addEventListener('click', () => {
+            idiomaActual = idiomaActual === 'es' ? 'en' : 'es'; actualizarTextos();
+        });
+        document.getElementById('btnSonido').addEventListener('click', () => {
+            sonidoActivado = !sonidoActivado; actualizarTextos();
+        });
 
-        escena.background = colorDia.clone(); 
-        escena.fog = new THREE.FogExp2(colorDia.clone(), 0.03); 
+        // --- CONFIGURACIÓN THREE.JS ---
+        const escena = new THREE.Scene();
+        escena.background = new THREE.Color(0x0a0a10); 
+        // Eliminada escena.fog como se solicitó
 
         const camaraControles = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const camaraRender = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -244,17 +234,17 @@
         renderizador.shadowMap.enabled = true;
         document.body.appendChild(renderizador.domElement);
 
-        const luzHemisferio = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); 
-        escena.add(luzHemisferio);
-        
-        const sol = new THREE.DirectionalLight(0xffeedd, 1.0); 
-        sol.position.set(20, 50, -20); sol.castShadow = true; escena.add(sol);
+        escena.add(new THREE.HemisphereLight(0x333344, 0x111118, 0.3)); 
+        const luna = new THREE.DirectionalLight(0x555588, 0.8); 
+        luna.position.set(20, 50, -20); luna.castShadow = true; escena.add(luna);
 
         const linterna = new THREE.SpotLight(0xffffff, 0); 
         linterna.angle = Math.PI / 5; linterna.penumbra = 0.3; linterna.distance = 40; linterna.castShadow = true;
         linterna.position.set(0, 0, 0); linterna.target.position.set(0, 0, -1); 
         camaraControles.add(linterna); camaraControles.add(linterna.target);
+        
         let linternaEncendida = false;
+        let bateriaLinterna = 100;
 
         const loaderTex = new THREE.TextureLoader();
         const fbxLoader = new FBXLoader();
@@ -275,108 +265,102 @@
         const muroEste = new THREE.Mesh(geoMuro, matMuro); muroEste.position.set(70, 5, 0); muroEste.rotation.y = Math.PI / 2; escena.add(muroEste);
         const muroOeste = new THREE.Mesh(geoMuro, matMuro); muroOeste.position.set(-70, 5, 0); muroOeste.rotation.y = Math.PI / 2; escena.add(muroOeste);
 
+        let jugador = { vida: 100, maxVida: 100 };
+        let municion = { actual: 30, maxima: 30, recargando: false }; 
+        let sistemaHordas = { 
+            nivel: 1, maxHordas: 5,
+            zombiesRestantes: 10, zombiesTotales: 10, 
+            multiplicadorVidaZombie: 1, velocidadZombie: 0.05, danoZombie: 2 
+        };
+        let dificultadSeleccionada = 0; 
         let datosZombiesGrupales = [];
+
         let modeloTP; let mixerTP; let accionesTP = {}; 
         let enemigos = [];
         const reloj = new THREE.Clock(); 
-        let juegoListo = false; let juegoEmpezado = false; let gameOver = false; let victoriaAlcanzada = false;
+        let juegoListo = false; let juegoEmpezado = false; let gameOver = false; let victoria = false;
 
         const controles = new PointerLockControls(camaraControles, document.body);
         
-        function aplicarDificultad() {
-            sistemaHordas.nivel = 1;
-            sistemaHordas.zombiesTotales = configActiva.baseZombies;
-            sistemaHordas.zombiesRestantes = configActiva.baseZombies;
-            sistemaHordas.multiplicadorVidaZombie = configActiva.baseVidaZ;
-            sistemaHordas.velocidadZombie = configActiva.baseVelocidad;
-            sistemaHordas.danoZombie = configActiva.baseDano;
-            jugador.vida = 100;
-            municion.actual = municion.maxima;
-            bateriaLinterna = 100;
-        }
-
-        function spawnearHorda() {
-            // Eliminar restos anteriores
-            enemigos.forEach(z => {
-                escena.remove(z.mesh);
-                if (z.hpBarContenedor) z.hpBarContenedor.remove();
+        // Iniciar Juego con Dificultad
+        document.querySelectorAll('.btnDif').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                dificultadSeleccionada = parseInt(e.target.getAttribute('data-dif'));
+                iniciarPartida();
             });
-            enemigos = [];
-            for(let i=0; i<sistemaHordas.zombiesTotales; i++) { 
-                let esTrepador = (sistemaHordas.nivel >= 2 && Math.random() < 0.35);
-                crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)], esTrepador); 
-            }
-        }
-
-        function reiniciarJuegoCompleto(volverAlMenu = false) {
-            aplicarDificultad();
-            spawnearHorda();
-            camaraControles.position.set(0, 1.6, 0); 
-            gameOver = false; 
-            victoriaAlcanzada = false;
-            
-            uiDivs.bloqueo.style.display = 'none'; 
-            pantallaRoja.style.display = 'none'; 
-            mensajeRecarga.style.display = 'none';
-            uiDivs.menuVictoria.style.display = 'none';
-            
-            if(volverAlMenu) {
-                juegoEmpezado = false;
-                mira.style.display = 'none'; hud.style.display = 'none';
-                uiDivs.contenedorBarras.style.display = 'none';
-                uiDivs.menuInicio.style.display = 'flex'; 
-                textoPausa.innerText = "PAUSED"; textoPausa.style.color = "white";
-                btnContinuar.style.display = "inline-block";
-            } else {
-                juegoEmpezado = true;
-                controles.lock();
-                mira.style.display = 'block'; hud.style.display = 'block';
-                uiDivs.contenedorBarras.style.display = 'block';
-                actualizarHUD();
-            }
-        }
-
-        document.getElementById('btnIniciar').addEventListener('click', () => {
-            uiDivs.menuInicio.style.display = 'none'; 
-            mira.style.display = 'block'; hud.style.display = 'block'; pantallaRoja.style.display = 'block';
-            uiDivs.contenedorBarras.style.display = 'block';
-            reiniciarJuegoCompleto(false); 
         });
         
-        btnContinuar.addEventListener('click', () => { if(!gameOver && !victoriaAlcanzada) controles.lock(); });
-        btnSalir.addEventListener('click', () => { reiniciarJuegoCompleto(true); });
-        document.getElementById('btnRejugar').addEventListener('click', () => { reiniciarJuegoCompleto(false); });
-        document.getElementById('btnVolverMenuWin').addEventListener('click', () => { reiniciarJuegoCompleto(true); });
+        document.getElementById('btnContinuar').addEventListener('click', () => { if(!gameOver && !victoria) controles.lock(); });
+        document.getElementById('btnRejugar').addEventListener('click', () => { document.getElementById('menuVictoria').style.display = 'none'; iniciarPartida(); });
+        
+        const salirAlMenu = () => {
+            gameOver = false; victoria = false; juegoEmpezado = false;
+            document.getElementById('bloqueo').style.display = 'none'; 
+            document.getElementById('menuVictoria').style.display = 'none'; 
+            document.getElementById('pantallaRoja').style.display = 'none'; 
+            document.getElementById('mensajeRecarga').style.display = 'none'; 
+            document.getElementById('mira').style.display = 'none'; 
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('contenedorMenus').style.display = 'flex'; 
+            navPanel('panelDificultad', 'panelPrincipal');
+            document.getElementById('estadoCarga').innerText = textos[idiomaActual].cargaListo;
+        };
+        document.getElementById('btnSalir').addEventListener('click', salirAlMenu);
+        document.getElementById('btnSalirVictoria').addEventListener('click', salirAlMenu);
 
-        controles.addEventListener('lock', () => uiDivs.bloqueo.style.display = 'none');
-        controles.addEventListener('unlock', () => { 
-            if(juegoEmpezado && !gameOver && !victoriaAlcanzada) uiDivs.bloqueo.style.display = 'flex'; 
-        });
+        function iniciarPartida() {
+            jugador.vida = 100; municion.actual = municion.maxima; municion.recargando = false; bateriaLinterna = 100; linternaEncendida = false; linterna.intensity = 0;
+            sistemaHordas.nivel = 1; 
+            
+            if(dificultadSeleccionada === 0) { 
+                sistemaHordas.zombiesTotales = 10; sistemaHordas.multiplicadorVidaZombie = 1.0; sistemaHordas.velocidadZombie = 0.04; sistemaHordas.danoZombie = 2;
+            } else if(dificultadSeleccionada === 1) { 
+                sistemaHordas.zombiesTotales = 15; sistemaHordas.multiplicadorVidaZombie = 1.5; sistemaHordas.velocidadZombie = 0.07; sistemaHordas.danoZombie = 5;
+            } else if(dificultadSeleccionada === 2) { 
+                sistemaHordas.zombiesTotales = 20; sistemaHordas.multiplicadorVidaZombie = 2.0; sistemaHordas.velocidadZombie = 0.10; sistemaHordas.danoZombie = 10;
+            } else { 
+                sistemaHordas.zombiesTotales = 25; sistemaHordas.multiplicadorVidaZombie = 3.0; sistemaHordas.velocidadZombie = 0.14; sistemaHordas.danoZombie = 20;
+            }
+            sistemaHordas.zombiesRestantes = sistemaHordas.zombiesTotales;
+            
+            enemigos.forEach(z => escena.remove(z.mesh));
+            enemigos = [];
+            for(let i=0; i<sistemaHordas.zombiesTotales; i++) { crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)], false); }
+            
+            camaraControles.position.set(0, 1.6, 0); 
+            gameOver = false; victoria = false; juegoEmpezado = true;
+            
+            document.getElementById('contenedorMenus').style.display = 'none';
+            document.getElementById('mira').style.display = 'block'; 
+            document.getElementById('hud').style.display = 'block'; 
+            document.getElementById('pantallaRoja').style.display = 'block';
+            actualizarHUD();
+            controles.lock();
+        }
+
+        controles.addEventListener('lock', () => document.getElementById('bloqueo').style.display = 'none');
+        controles.addEventListener('unlock', () => { if(juegoEmpezado && !gameOver && !victoria) document.getElementById('bloqueo').style.display = 'flex'; });
 
         const teclas = { w:false, a:false, s:false, d:false }; let velY = 0, enSuelo = true;
         
         document.addEventListener('keydown', e => {
-            if(!controles.isLocked || !juegoEmpezado || gameOver || victoriaAlcanzada) return;
+            if(!controles.isLocked || !juegoEmpezado || gameOver || victoria) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
-            
-            // Lógica de Linterna
             if(e.code === 'KeyF') { 
-                if (bateriaLinterna > 0) {
-                    linternaEncendida = !linternaEncendida; 
-                    linterna.intensity = linternaEncendida ? 30 : 0; 
-                }
+                if(bateriaLinterna > 0) { linternaEncendida = !linternaEncendida; linterna.intensity = linternaEncendida ? 30 : 0; }
             }
             
             if(e.code === 'KeyR' && municion.actual < municion.maxima && !municion.recargando) {
                 municion.recargando = true;
-                mensajeRecarga.innerText = "RELOADING...";
-                mensajeRecarga.style.color = "#ffff00";
-                mensajeRecarga.style.display = 'block';
+                const recMsg = document.getElementById('mensajeRecarga');
+                recMsg.innerText = textos[idiomaActual].recargando;
+                recMsg.style.color = "#ffff00";
+                recMsg.style.display = 'block';
                 setTimeout(() => {
                     municion.actual = municion.maxima;
                     municion.recargando = false;
-                    mensajeRecarga.style.display = 'none';
+                    recMsg.style.display = 'none';
                     actualizarHUD();
                 }, 1500); 
             }
@@ -384,21 +368,26 @@
         document.addEventListener('keyup', e => { if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = false; });
 
         function actualizarHUD() {
-            uiVida.innerText = Math.max(0, Math.floor(jugador.vida));
-            uiHorda.innerText = sistemaHordas.nivel;
-            uiZombies.innerText = sistemaHordas.zombiesRestantes;
+            document.getElementById('uiVida').innerText = Math.max(0, Math.floor(jugador.vida));
+            document.getElementById('uiHorda').innerText = sistemaHordas.nivel;
+            document.getElementById('uiZombies').innerText = sistemaHordas.zombiesRestantes;
+            const uiBalas = document.getElementById('uiBalas');
             uiBalas.innerText = municion.actual;
-            uiBateria.innerText = Math.floor(bateriaLinterna);
             if(municion.actual <= 10) uiBalas.style.color = "red"; else uiBalas.style.color = "#ffff00";
-            if(bateriaLinterna <= 20) uiBateria.style.color = "red"; else uiBateria.style.color = "#00ffff";
 
-            if(jugador.vida <= 0 && !gameOver && !victoriaAlcanzada) {
+            if(jugador.vida <= 0 && !gameOver && !victoria) {
                 gameOver = true; controles.unlock();
-                textoPausa.innerText = "YOU WERE EATEN!"; textoPausa.style.color = "red";
-                btnContinuar.style.display = "none"; uiDivs.bloqueo.style.display = 'flex';
-                mira.style.display = 'none'; hud.style.display = 'none';
-                uiDivs.contenedorBarras.style.display = 'none';
+                document.getElementById('textoPausa').innerText = textos[idiomaActual].teComieron; 
+                document.getElementById('textoPausa').style.color = "red";
+                document.getElementById('btnContinuar').style.display = "none"; 
+                document.getElementById('bloqueo').style.display = 'flex';
             }
+            
+            const batNivel = document.getElementById('bateriaNivel');
+            batNivel.style.width = bateriaLinterna + "%";
+            if(bateriaLinterna > 50) batNivel.style.backgroundColor = "#00ff00";
+            else if(bateriaLinterna > 20) batNivel.style.backgroundColor = "#ffff00";
+            else batNivel.style.backgroundColor = "#ff0000";
         }
 
         const cargarFBX = (url) => new Promise((resolve, reject) => { fbxLoader.load(url, resolve, undefined, (err) => reject({url, err})); });
@@ -407,14 +396,10 @@
             const clonMesh = SkeletonUtils.clone(tipoElegido.modeloBase);
             let posX, posZ, tocandoObjeto;
             do {
-                posX = (Math.random() - 0.5) * 120;
-                posZ = (Math.random() - 0.5) * 120;
-                tocandoObjeto = false;
+                posX = (Math.random() - 0.5) * 120; posZ = (Math.random() - 0.5) * 120; tocandoObjeto = false;
                 if(Math.abs(posX) < 10 && Math.abs(posZ) < 10) { tocandoObjeto = true; continue; }
                 for(let caja of cajasColision) {
-                    if(posX > caja.min.x - 1 && posX < caja.max.x + 1 && posZ > caja.min.z - 1 && posZ < caja.max.z + 1) {
-                        tocandoObjeto = true; break;
-                    }
+                    if(posX > caja.min.x - 1 && posX < caja.max.x + 1 && posZ > caja.min.z - 1 && posZ < caja.max.z + 1) { tocandoObjeto = true; break; }
                 }
             } while(tocandoObjeto);
 
@@ -426,45 +411,19 @@
                 death: mixer.clipAction(tipoElegido.animaciones.death),
                 climb: mixer.clipAction(tipoElegido.animaciones.climb) 
             };
-            
             acciones.death.setLoop(THREE.LoopOnce); acciones.death.clampWhenFinished = true; 
             acciones.walk.play();
             
-            // Crear UI para barra de vida
-            const barraContainer = document.createElement('div');
-            barraContainer.style.position = 'absolute';
-            barraContainer.style.width = '40px';
-            barraContainer.style.height = '6px';
-            barraContainer.style.background = 'rgba(0,0,0,0.8)';
-            barraContainer.style.border = '1px solid #000';
-            barraContainer.style.display = 'none';
-            
-            const barraLlenado = document.createElement('div');
-            barraLlenado.style.width = '100%';
-            barraLlenado.style.height = '100%';
-            barraLlenado.style.background = '#ff0000';
-            barraLlenado.style.transition = 'width 0.1s';
-            barraContainer.appendChild(barraLlenado);
-            uiDivs.contenedorBarras.appendChild(barraContainer);
-
-            let maxHp = 3 * sistemaHordas.multiplicadorVidaZombie;
-            
             enemigos.push({
                 mesh: clonMesh, mixer: mixer, acciones: acciones, estado: 'walk', 
-                vida: maxHp, maxVida: maxHp, ultimoAtaque: 0, 
-                puedeEscalar: puedeEscalar,
-                hpBarContenedor: barraContainer,
-                hpBarLlenado: barraLlenado,
+                vida: 3 * sistemaHordas.multiplicadorVidaZombie, ultimoAtaque: 0, puedeEscalar: puedeEscalar,
                 cambiarEstado: function(nuevoEstado) {
                     if(this.estado === nuevoEstado || this.estado === 'dead') return;
                     if (nuevoEstado === 'dead') { 
                         this.acciones.walk.stop(); this.acciones.attack.stop(); this.acciones.climb.stop(); 
                         this.acciones.death.reset().play(); 
-                        this.hpBarContenedor.style.display = 'none';
-                    }
-                    else { 
-                        this.acciones[this.estado].fadeOut(0.2); 
-                        this.acciones[nuevoEstado].reset().fadeIn(0.2).play(); 
+                    } else { 
+                        this.acciones[this.estado].fadeOut(0.2); this.acciones[nuevoEstado].reset().fadeIn(0.2).play(); 
                     }
                     this.estado = nuevoEstado;
                 }
@@ -473,13 +432,13 @@
 
         async function iniciarCarga() {
             try {
-                estadoCarga.innerText = "Loading cars and environment...";
+                const ec = document.getElementById('estadoCarga');
+                ec.innerText = "Cargando autos y entorno...";
                 let modeloAutoBase;
                 const escalaAuto = 0.1; 
                 try {
                     const gltfData = await new Promise((resolve, reject) => { gltfLoader.load('./Carro.glb', resolve, undefined, reject); });
-                    modeloAutoBase = gltfData.scene;
-                    modeloAutoBase.scale.set(escalaAuto, escalaAuto, escalaAuto);
+                    modeloAutoBase = gltfData.scene; modeloAutoBase.scale.set(escalaAuto, escalaAuto, escalaAuto);
                     modeloAutoBase.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
                 } catch (e) {
                     const texMetalCarro = loaderTex.load('https://cdn.polyhaven.com/asset_img/primary/peeling_painted_metal.png?height=512&quality=80');
@@ -490,20 +449,18 @@
                 for(let i=0; i<15; i++) {
                     const x = (Math.random() - 0.5) * 120; const z = (Math.random() - 0.5) * 120;
                     if(Math.abs(x) < 15 && Math.abs(z) < 15) continue; 
-                    const autoClon = SkeletonUtils.clone(modeloAutoBase);
-                    autoClon.position.set(x, 0, z); 
+                    const autoClon = SkeletonUtils.clone(modeloAutoBase); autoClon.position.set(x, 0, z); 
                     if(!modeloAutoBase.isObject3D) { autoClon.position.y = 0.6; } 
                     autoClon.rotation.y = Math.random() * Math.PI; escena.add(autoClon);
                     cajasColision.push(new THREE.Box3().setFromObject(autoClon));
                 }
 
-                estadoCarga.innerText = "Loading forest trees...";
+                ec.innerText = "Cargando árboles del bosque...";
                 let modeloArbolBase;
                 try {
                     const gltfDataArbol = await new Promise((resolve, reject) => { gltfLoader.load('./arbol.glb', resolve, undefined, reject); });
                     modeloArbolBase = gltfDataArbol.scene;
-                    const escalaArbol = 0.1; 
-                    modeloArbolBase.scale.set(escalaArbol, escalaArbol, escalaArbol);
+                    const escalaArbol = 0.1; modeloArbolBase.scale.set(escalaArbol, escalaArbol, escalaArbol);
                     modeloArbolBase.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
                 } catch (e) {
                     modeloArbolBase = new THREE.Mesh(new THREE.BoxGeometry(1, 5, 1), new THREE.MeshStandardMaterial({color: 0x334433}));
@@ -512,10 +469,10 @@
                 for(let i=0; i<100; i++) {
                     const x = (Math.random() - 0.5) * 130; const z = (Math.random() - 0.5) * 130;
                     if(Math.abs(x) < 10 && Math.abs(z) < 10) continue; 
-                    const arbolClon = SkeletonUtils.clone(modeloArbolBase);
-                    arbolClon.position.set(x, 0, z); 
+                    const arbolClon = SkeletonUtils.clone(modeloArbolBase); arbolClon.position.set(x, 0, z); 
                     if(!modeloArbolBase.isObject3D) { arbolClon.position.y = 0.6; } 
                     arbolClon.rotation.y = Math.random() * Math.PI; escena.add(arbolClon);
+                    
                     const cajaArbol = new THREE.Box3().setFromObject(arbolClon);
                     const centro = new THREE.Vector3(); cajaArbol.getCenter(centro);
                     cajaArbol.min.x = centro.x - 0.5; cajaArbol.max.x = centro.x + 0.5;
@@ -523,17 +480,13 @@
                     cajasColision.push(cajaArbol);
                 }
 
-                estadoCarga.innerText = "Loading characters and zombies...";
+                ec.innerText = "Cargando personajes y zombies...";
                 const escalaNormal = 0.007; 
-                const tpIdleModel = await cargarFBX('./Rifle Idle.fbx');
-                const tpRunModel = await cargarFBX('./correr.fbx');
-                modeloTP = tpIdleModel;
-                modeloTP.scale.set(escalaNormal, escalaNormal, escalaNormal); 
+                const tpIdleModel = await cargarFBX('./Rifle Idle.fbx'); const tpRunModel = await cargarFBX('./correr.fbx');
+                modeloTP = tpIdleModel; modeloTP.scale.set(escalaNormal, escalaNormal, escalaNormal); 
                 modeloTP.traverse(n => { if(n.isMesh) n.castShadow = true; }); escena.add(modeloTP);
-                
                 mixerTP = new THREE.AnimationMixer(modeloTP);
-                accionesTP.idle = mixerTP.clipAction(tpIdleModel.animations[0]);
-                accionesTP.run = mixerTP.clipAction(tpRunModel.animations[0]); accionesTP.idle.play(); 
+                accionesTP.idle = mixerTP.clipAction(tpIdleModel.animations[0]); accionesTP.run = mixerTP.clipAction(tpRunModel.animations[0]); accionesTP.idle.play(); 
 
                 const nombresZombies = [
                     { walk: './Z1_Walk.fbx', attack: './Z1_attack.fbx', death: './Z1_Death.fbx', climb: './Z1_Escalar.fbx' },
@@ -542,36 +495,28 @@
                 ];
                 
                 for(let i=0; i<nombresZombies.length; i++) {
-                    const w = await cargarFBX(nombresZombies[i].walk); 
-                    const a = await cargarFBX(nombresZombies[i].attack); 
-                    const d = await cargarFBX(nombresZombies[i].death);
-                    const c = await cargarFBX(nombresZombies[i].climb); 
+                    const w = await cargarFBX(nombresZombies[i].walk); const a = await cargarFBX(nombresZombies[i].attack); 
+                    const d = await cargarFBX(nombresZombies[i].death); const c = await cargarFBX(nombresZombies[i].climb); 
                     w.scale.set(escalaNormal, escalaNormal, escalaNormal);
-                    datosZombiesGrupales.push({ 
-                        modeloBase: w, 
-                        animaciones: { walk: w.animations[0], attack: a.animations[0], death: d.animations[0], climb: c.animations[0] } 
-                    });
+                    datosZombiesGrupales.push({ modeloBase: w, animaciones: { walk: w.animations[0], attack: a.animations[0], death: d.animations[0], climb: c.animations[0] } });
                 }
                 
-                aplicarDificultad();
-                spawnearHorda();
+                for(let i=0; i<sistemaHordas.zombiesTotales; i++) { crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)], false); }
 
-                estadoCarga.style.display = 'none';
-                uiDivs.contenedorBotonesPrincipal.style.display = 'flex';
-                juegoListo = true;
-            } catch (error) { console.error(error); estadoCarga.innerText = "ERROR LOADING DATA."; }
+                ec.innerText = textos[idiomaActual].cargaListo; document.getElementById('btnJugar').disabled = false; juegoListo = true;
+            } catch (error) { console.error(error); document.getElementById('estadoCarga').innerText = textos[idiomaActual].cargaError; }
         }
         iniciarCarga();
 
-        const ray = new THREE.Raycaster();
-        const matDisparo = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 }); 
+        const ray = new THREE.Raycaster(); const matDisparo = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 }); 
         
        window.addEventListener('mousedown', () => {
-            if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver || victoriaAlcanzada) return;
+            if(!controles.isLocked || !juegoListo || !juegoEmpezado || gameOver || victoria) return;
             if(municion.recargando) return; 
+            const msgRec = document.getElementById('mensajeRecarga');
             if(municion.actual <= 0) {
-                mensajeRecarga.innerText = "[ PRESS 'R' TO RELOAD ]"; mensajeRecarga.style.color = "red"; mensajeRecarga.style.display = "block";
-                setTimeout(() => { if(!municion.recargando) mensajeRecarga.style.display = "none"; }, 1000); return;
+                msgRec.innerText = textos[idiomaActual].pideRecargar; msgRec.style.color = "red"; msgRec.style.display = "block";
+                setTimeout(() => { if(!municion.recargando) msgRec.style.display = "none"; }, 1000); return;
             }
 
             municion.actual--; actualizarHUD();
@@ -588,45 +533,24 @@
                 
                 if(zombieAtacado && zombieAtacado.estado !== 'dead') { 
                     zombieAtacado.vida -= 1;
-                    zombieAtacado.hpBarLlenado.style.width = `${(zombieAtacado.vida / zombieAtacado.maxVida) * 100}%`;
-                    
                     if(zombieAtacado.vida <= 0) {
-                        zombieAtacado.cambiarEstado('dead'); 
-                        sistemaHordas.zombiesRestantes--; 
-                        actualizarHUD();
-
-                        setTimeout(() => { 
-                            escena.remove(zombieAtacado.mesh); 
-                            zombieAtacado.hpBarContenedor.remove();
-                        }, 5000);
+                        zombieAtacado.cambiarEstado('dead'); sistemaHordas.zombiesRestantes--; actualizarHUD();
+                        setTimeout(() => { escena.remove(zombieAtacado.mesh); }, 5000);
 
                         if(sistemaHordas.zombiesRestantes <= 0) {
-                            if (sistemaHordas.nivel >= 5) {
-                                setTimeout(() => {
-                                    victoriaAlcanzada = true;
-                                    controles.unlock();
-                                    uiDivs.menuVictoria.style.display = 'flex';
-                                    mira.style.display = 'none';
-                                    hud.style.display = 'none';
-                                    uiDivs.contenedorBarras.style.display = 'none';
-                                    pantallaRoja.style.display = 'none';
-                                }, 1500);
+                            if(sistemaHordas.nivel >= sistemaHordas.maxHordas) {
+                                setTimeout(() => { victoria = true; controles.unlock(); document.getElementById('menuVictoria').style.display = 'flex'; }, 1000);
                             } else {
-                                mensajeRecarga.innerText = "HORDE CLEARED! GET READY..."; 
-                                mensajeRecarga.style.color = "#00ff00"; 
-                                mensajeRecarga.style.display = "block";
-                                
+                                msgRec.innerText = textos[idiomaActual].hordaEliminada; msgRec.style.color = "#00ff00"; msgRec.style.display = "block";
                                 setTimeout(() => { 
-                                    mensajeRecarga.style.display = "none";
-                                    sistemaHordas.nivel++; 
+                                    msgRec.style.display = "none"; sistemaHordas.nivel++; 
+                                    sistemaHordas.zombiesTotales += 3; sistemaHordas.zombiesRestantes = sistemaHordas.zombiesTotales; 
+                                    sistemaHordas.multiplicadorVidaZombie += 0.2; sistemaHordas.velocidadZombie += 0.01; sistemaHordas.danoZombie += 1; 
                                     
-                                    sistemaHordas.zombiesTotales += configActiva.escalaZombies; 
-                                    sistemaHordas.zombiesRestantes = sistemaHordas.zombiesTotales; 
-                                    sistemaHordas.multiplicadorVidaZombie += configActiva.escalaVidaZ; 
-                                    sistemaHordas.velocidadZombie += configActiva.escalaVelocidad; 
-                                    sistemaHordas.danoZombie += configActiva.escalaDano; 
-                                    
-                                    spawnearHorda();
+                                    for(let i=0; i<sistemaHordas.zombiesTotales; i++) { 
+                                        let esTrepador = (sistemaHordas.nivel >= 2 && Math.random() < 0.35);
+                                        crearZombie(datosZombiesGrupales[Math.floor(Math.random() * datosZombiesGrupales.length)], esTrepador); 
+                                    } 
                                     actualizarHUD(); 
                                 }, 4000); 
                             }
@@ -642,80 +566,42 @@
                 setTimeout(() => { escena.remove(rastro); rastro.material.dispose(); geoDisparo.dispose(); }, 80); 
             }
         });
-        
         let estadoTPActual = 'idle';
         function cambiarAnimacionTP(nuevoEstado) {
-            if(nuevoEstado === estadoTPActual) return;
+            if(nuevoEstado === estadoTPActual || !accionesTP[nuevoEstado]) return;
             accionesTP[estadoTPActual].fadeOut(0.2); accionesTP[nuevoEstado].reset().fadeIn(0.2).play(); estadoTPActual = nuevoEstado;
         }
 
         function checarColisionXZ(posicion, radio, offsetY = 1.6) {
             const piesY = posicion.y - offsetY; let alturaSuelo = 0; let choca = false;
             for(let caja of cajasColision) {
-                if(posicion.x > caja.min.x - radio && posicion.x < caja.max.x + radio && 
-                   posicion.z > caja.min.z - radio && posicion.z < caja.max.z + radio) {
-                    if(piesY >= caja.max.y - 0.2) { alturaSuelo = Math.max(alturaSuelo, caja.max.y); } 
-                    else { choca = true; }
+                if(posicion.x > caja.min.x - radio && posicion.x < caja.max.x + radio && posicion.z > caja.min.z - radio && posicion.z < caja.max.z + radio) {
+                    if(piesY >= caja.max.y - 0.2) { alturaSuelo = Math.max(alturaSuelo, caja.max.y); } else { choca = true; }
                 }
             }
             return { choca, alturaSuelo };
         }
 
-        // CICLO DE DÍA Y NOCHE
-        function actualizarEntornoYClima(tiempoActual) {
-            // Ciclo de 600 segundos (10 min). Día: 0-300, Noche: 300-600.
-            const duracionCiclo = 600; 
-            const progreso = (tiempoActual % duracionCiclo) / duracionCiclo;
-            
-            // Factor de sol de 0 a 1 usando Math.sin para transiciones suaves
-            // Math.sin(progreso * PI * 2) oscila entre -1 y 1
-            const onda = Math.sin(progreso * Math.PI * 2);
-            let factorSol = (onda + 1) / 2; // Normaliza de 0 a 1 (1 = pico del día, 0 = pico de la noche)
-
-            // Interpolación de colores
-            const colorFondoActual = new THREE.Color().lerpColors(colorNoche, colorDia, factorSol);
-            const colorCieloActual = new THREE.Color().lerpColors(luzCieloNoche, luzCieloDia, factorSol);
-            
-            escena.background.copy(colorFondoActual);
-            escena.fog.color.copy(colorFondoActual);
-            luzHemisferio.color.copy(colorCieloActual);
-            
-            sol.intensity = Math.max(0, factorSol * 1.5 - 0.2); // El sol se apaga completamente en la noche profunda
-        }
-
         function animar() {
             requestAnimationFrame(animar);
-            const delta = reloj.getDelta();
-            const tiempoActual = reloj.getElapsedTime();
+            const delta = reloj.getDelta(); const tiempoActual = reloj.getElapsedTime();
             
-            // Actualiza ambiente día/noche en todo momento
-            actualizarEntornoYClima(tiempoActual);
-
-            if (!juegoEmpezado && juegoListo) {
-                // Al inicio ya no renderizamos la cámara giratoria de fondo para enfatizar el menú 2D
-                return;
-            }
-
-            if(juegoEmpezado && !gameOver && !victoriaAlcanzada && controles.isLocked) {
-                // Lógica batería
-                if (linternaEncendida) {
-                    bateriaLinterna -= delta * 2; // Se acaba en 50 segundos aprox
-                    if (bateriaLinterna <= 0) {
-                        bateriaLinterna = 0; linternaEncendida = false; linterna.intensity = 0;
-                    }
-                } else {
-                    bateriaLinterna += delta * 5; // Se recarga en 20 segundos aprox
-                    if (bateriaLinterna > 100) bateriaLinterna = 100;
-                }
+            if(juegoEmpezado && !gameOver && !victoria && controles.isLocked) {
                 
-                // Actualiza HUD periódicamente (cada ~30 frames para no sobrecargar el texto de la batería)
-                if(Math.floor(tiempoActual * 60) % 30 === 0) actualizarHUD();
+                if(linternaEncendida) {
+                    bateriaLinterna -= 5 * delta;
+                    if(bateriaLinterna <= 0) { bateriaLinterna = 0; linternaEncendida = false; linterna.intensity = 0; }
+                    actualizarHUD();
+                } else if(bateriaLinterna < 100) {
+                    bateriaLinterna += 2 * delta;
+                    if(bateriaLinterna > 100) bateriaLinterna = 100;
+                    actualizarHUD();
+                }
 
                 if(mixerTP) mixerTP.update(delta);
 
                 const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
-                const posOriginalX = camaraControles.position.x;
-                const posOriginalZ = camaraControles.position.z;
+                const posOriginalX = camaraControles.position.x; const posOriginalZ = camaraControles.position.z;
 
                 if(teclas.w) controles.moveForward(0.15); if(teclas.s) controles.moveForward(-0.15);
                 if(teclas.a) controles.moveRight(-0.12); if(teclas.d) controles.moveRight(0.12);
@@ -740,8 +626,7 @@
                 } else { enSuelo = false; }
 
                 const euler = new THREE.Euler(0,0,0,'YXZ').setFromQuaternion(camaraControles.quaternion);
-                camaraRender.position.copy(camaraControles.position);
-                camaraRender.quaternion.copy(camaraControles.quaternion);
+                camaraRender.position.copy(camaraControles.position); camaraRender.quaternion.copy(camaraControles.quaternion);
                 camaraRender.translateZ(3.0); camaraRender.position.y += 0.5; 
                 
                 if(modeloTP) {
@@ -753,33 +638,10 @@
                 let recibiendoDano = false;
                 
                 for(let z of enemigos) {
-                    z.mixer.update(delta); 
+                    z.mixer.update(delta); if(z.estado === 'dead') continue;
                     
-                    if(z.estado === 'dead') {
-                        z.hpBarContenedor.style.display = 'none';
-                        continue;
-                    }
-                    
-                    // Actualización 2D de barras de vida
-                    const vecVida = new THREE.Vector3();
-                    vecVida.setFromMatrixPosition(z.mesh.matrixWorld);
-                    vecVida.y += 1.8; // Altura sobre el zombie
-                    vecVida.project(camaraRender);
-                    
-                    if (vecVida.z > 1) { // Está detrás de la cámara
-                        z.hpBarContenedor.style.display = 'none';
-                    } else {
-                        z.hpBarContenedor.style.display = 'block';
-                        const posX2D = (vecVida.x * 0.5 + 0.5) * window.innerWidth;
-                        const posY2D = (vecVida.y * -0.5 + 0.5) * window.innerHeight;
-                        z.hpBarContenedor.style.left = `${posX2D - 20}px`;
-                        z.hpBarContenedor.style.top = `${posY2D}px`;
-                    }
-                    
-                    const posJugadorLogica = camaraControles.position.clone(); 
-                    posJugadorLogica.y = z.mesh.position.y; 
+                    const posJugadorLogica = camaraControles.position.clone(); posJugadorLogica.y = z.mesh.position.y; 
                     z.mesh.lookAt(posJugadorLogica);
-                    
                     const dist3D = z.mesh.position.distanceTo(camaraControles.position);
 
                     if(dist3D > 2.5) { 
@@ -788,8 +650,8 @@
                         if (z.puedeEscalar) {
                             z.mesh.position.x += dirZombie.x * (sistemaHordas.velocidadZombie * 1.1);
                             z.mesh.position.z += dirZombie.z * (sistemaHordas.velocidadZombie * 1.1);
-                            
                             let tocandoPared = false; let alturaPiso = 0;
+                            
                             for(let caja of cajasColision) {
                                 if(z.mesh.position.x > caja.min.x - 0.4 && z.mesh.position.x < caja.max.x + 0.4 && 
                                    z.mesh.position.z > caja.min.z - 0.4 && z.mesh.position.z < caja.max.z + 0.4) {
@@ -817,21 +679,20 @@
                             z.mesh.position.z += dirZombie.z * sistemaHordas.velocidadZombie;
                             if(checarColisionXZ(z.mesh.position, 0.5, 0).choca) z.mesh.position.z = zOriZ;
                             
-                            z.mesh.position.y += (0 - z.mesh.position.y) * 0.1;
-                            z.cambiarEstado('walk');
+                            z.mesh.position.y += (0 - z.mesh.position.y) * 0.1; z.cambiarEstado('walk');
                         }
                     } else { 
                         z.cambiarEstado('attack'); 
                         if(tiempoActual - z.ultimoAtaque > 1.5) {
-                            jugador.vida -= sistemaHordas.danoZombie; 
-                            z.ultimoAtaque = tiempoActual;
-                            recibiendoDano = true; 
-                            actualizarHUD(); 
+                            jugador.vida -= sistemaHordas.danoZombie; z.ultimoAtaque = tiempoActual; recibiendoDano = true; actualizarHUD(); 
                         }
                     }
                 }
-                pantallaRoja.style.opacity = recibiendoDano ? "1" : pantallaRoja.style.opacity > 0 ? (pantallaRoja.style.opacity - 0.05) : "0";
-                if(municion.actual > 0 && mensajeRecarga.innerText === "[ PRESS 'R' TO RELOAD ]") { mensajeRecarga.style.display = "none"; }
+                const panRoja = document.getElementById('pantallaRoja');
+                panRoja.style.opacity = recibiendoDano ? "1" : panRoja.style.opacity > 0 ? (panRoja.style.opacity - 0.05) : "0";
+                
+                const msgRec = document.getElementById('mensajeRecarga');
+                if(municion.actual > 0 && msgRec.innerText === textos[idiomaActual].pideRecargar) { msgRec.style.display = "none"; }
             }
             renderizador.render(escena, camaraRender);
         }
