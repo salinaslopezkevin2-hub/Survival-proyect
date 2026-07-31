@@ -1,4 +1,3 @@
-<!-- Proyecto Survival Base[cite: 3] -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -28,7 +27,7 @@
         }
         .panel.activo { display: flex; }
 
-        #tituloMenu { font-size: 3rem; margin-bottom: 20px; color: #ff3333; text-shadow: 0 0 20px #ff0000; }
+        #tituloMenu, .tituloPausa { font-size: 3rem; margin-bottom: 20px; color: #ff3333; text-shadow: 0 0 20px #ff0000; }
         
         .botonMenu {
             background: rgba(0, 255, 0, 0.1); border: 2px solid #00ff00; color: #00ff00;
@@ -45,21 +44,13 @@
         }
 
         #mira {
-            position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid #ff0000;
+            position: absolute; top: 40%; left: 50%; width: 10px; height: 10px; border: 2px solid #ff0000;
             border-radius: 50%; transform: translate(-50%, -50%); z-index: 10; pointer-events: none; display: none;
         }
         
         #hud {
             position: absolute; bottom: 15px; left: 15px; color: #00ff00; font-size: 1.5rem; display: none;
             text-shadow: 2px 2px #000; font-weight: bold; pointer-events: none;
-        }
-        
-        /* Batería Linterna */
-        #bateriaContenedor {
-            width: 150px; height: 15px; border: 2px solid #00ff00; margin-top: 5px; background: rgba(0,0,0,0.5);
-        }
-        #bateriaNivel {
-            width: 100%; height: 100%; background: #00ff00; transition: width 0.1s, background-color 0.3s;
         }
 
         #pantallaRoja {
@@ -122,17 +113,21 @@
 
     <!-- Menú de Pausa / Derrota -->
     <div id="bloqueo">
-        <h1 id="textoPausa" data-lang="pausa">PAUSA</h1>
-        <button id="btnContinuar" class="botonMenu" data-lang="continuar">VOLVER AL JUEGO</button>
-        <button id="btnSalir" class="botonMenu" style="border-color: red; color: red;" data-lang="salirMenu">SALIR AL MENÚ</button>
+        <div class="panel activo" style="display: flex;">
+            <h1 id="textoPausa" class="tituloPausa" data-lang="pausa">PAUSA</h1>
+            <button id="btnContinuar" class="botonMenu" data-lang="continuar">VOLVER AL JUEGO</button>
+            <button id="btnSalir" class="botonMenu" style="border-color: red; color: red;" data-lang="salirMenu">SALIR AL MENÚ</button>
+        </div>
     </div>
 
     <!-- Menú de Victoria -->
     <div id="menuVictoria">
-        <h1 style="color: #00ff00; font-size: 3rem; text-shadow: 0 0 20px #00ff00;" data-lang="victoria">¡HAS GANADO!</h1>
-        <p data-lang="sobreviviste" style="font-size: 1.2rem;">Sobreviviste a las 5 hordas.</p>
-        <button id="btnRejugar" class="botonMenu" data-lang="jugarDeNuevo">VOLVER A JUGAR NIVEL</button>
-        <button id="btnSalirVictoria" class="botonMenu" style="border-color: red; color: red;" data-lang="salirMenu">SALIR AL MENÚ</button>
+        <div class="panel activo" style="display: flex;">
+            <h1 style="color: #00ff00; font-size: 3rem; text-shadow: 0 0 20px #00ff00; margin-bottom: 20px;" data-lang="victoria">¡HAS GANADO!</h1>
+            <p data-lang="sobreviviste" style="font-size: 1.2rem; margin-bottom: 20px;">Sobreviviste a las 5 hordas.</p>
+            <button id="btnRejugar" class="botonMenu" data-lang="jugarDeNuevo">VOLVER A JUGAR NIVEL</button>
+            <button id="btnSalirVictoria" class="botonMenu" style="border-color: red; color: red;" data-lang="salirMenu">SALIR AL MENÚ</button>
+        </div>
     </div>
 
     <div id="pantallaRoja"></div>
@@ -143,9 +138,6 @@
         <span data-lang="hudBalas">BALAS:</span> <span id="uiBalas" style="color: #ffff00;">30</span>/30 | 
         <span data-lang="hudHorda">HORDA:</span> <span id="uiHorda">1</span>/5 | 
         <span data-lang="hudZombies">ZOMBIES:</span> <span id="uiZombies">15</span>
-        <div id="bateriaContenedor">
-            <div id="bateriaNivel"></div>
-        </div>
         <br><span style="font-size: 0.8rem;" data-lang="hudControles">[WASD] Mover | [ESPACIO] Saltar | [F] Linterna | [R] Recargar | [CLICK] Disparar</span>
     </div>
 
@@ -223,7 +215,7 @@
         // --- CONFIGURACIÓN THREE.JS ---
         const escena = new THREE.Scene();
         escena.background = new THREE.Color(0x0a0a10); 
-        // Eliminada escena.fog como se solicitó
+        escena.fog = new THREE.Fog(0x0a0a10, 10, 60);
 
         const camaraControles = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const camaraRender = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -244,7 +236,6 @@
         camaraControles.add(linterna); camaraControles.add(linterna.target);
         
         let linternaEncendida = false;
-        let bateriaLinterna = 100;
 
         const loaderTex = new THREE.TextureLoader();
         const fbxLoader = new FBXLoader();
@@ -308,8 +299,20 @@
         document.getElementById('btnSalir').addEventListener('click', salirAlMenu);
         document.getElementById('btnSalirVictoria').addEventListener('click', salirAlMenu);
 
+        let teclas = { w:false, a:false, s:false, d:false }; let velY = 0, enSuelo = true;
+
         function iniciarPartida() {
-            jugador.vida = 100; municion.actual = municion.maxima; municion.recargando = false; bateriaLinterna = 100; linternaEncendida = false; linterna.intensity = 0;
+            // Corrección BUG de botones e inputs presionados
+            teclas = { w:false, a:false, s:false, d:false };
+            velY = 0; enSuelo = true;
+            
+            // Restablecer interfaz de pausa
+            const txtPausa = document.getElementById('textoPausa');
+            txtPausa.innerText = textos[idiomaActual].pausa;
+            txtPausa.style.color = "#ff3333";
+            document.getElementById('btnContinuar').style.display = "block";
+
+            jugador.vida = 100; municion.actual = municion.maxima; municion.recargando = false; linternaEncendida = false; linterna.intensity = 0;
             sistemaHordas.nivel = 1; 
             
             if(dificultadSeleccionada === 0) { 
@@ -340,15 +343,14 @@
 
         controles.addEventListener('lock', () => document.getElementById('bloqueo').style.display = 'none');
         controles.addEventListener('unlock', () => { if(juegoEmpezado && !gameOver && !victoria) document.getElementById('bloqueo').style.display = 'flex'; });
-
-        const teclas = { w:false, a:false, s:false, d:false }; let velY = 0, enSuelo = true;
         
         document.addEventListener('keydown', e => {
             if(!controles.isLocked || !juegoEmpezado || gameOver || victoria) return;
             if(teclas.hasOwnProperty(e.key.toLowerCase())) teclas[e.key.toLowerCase()] = true;
             if(e.code === 'Space' && enSuelo) { velY = 0.25; enSuelo = false; }
             if(e.code === 'KeyF') { 
-                if(bateriaLinterna > 0) { linternaEncendida = !linternaEncendida; linterna.intensity = linternaEncendida ? 30 : 0; }
+                linternaEncendida = !linternaEncendida; 
+                linterna.intensity = linternaEncendida ? 30 : 0;
             }
             
             if(e.code === 'KeyR' && municion.actual < municion.maxima && !municion.recargando) {
@@ -377,17 +379,12 @@
 
             if(jugador.vida <= 0 && !gameOver && !victoria) {
                 gameOver = true; controles.unlock();
-                document.getElementById('textoPausa').innerText = textos[idiomaActual].teComieron; 
-                document.getElementById('textoPausa').style.color = "red";
+                const txtPausa = document.getElementById('textoPausa');
+                txtPausa.innerText = textos[idiomaActual].teComieron; 
+                txtPausa.style.color = "red";
                 document.getElementById('btnContinuar').style.display = "none"; 
                 document.getElementById('bloqueo').style.display = 'flex';
             }
-            
-            const batNivel = document.getElementById('bateriaNivel');
-            batNivel.style.width = bateriaLinterna + "%";
-            if(bateriaLinterna > 50) batNivel.style.backgroundColor = "#00ff00";
-            else if(bateriaLinterna > 20) batNivel.style.backgroundColor = "#ffff00";
-            else batNivel.style.backgroundColor = "#ff0000";
         }
 
         const cargarFBX = (url) => new Promise((resolve, reject) => { fbxLoader.load(url, resolve, undefined, (err) => reject({url, err})); });
@@ -588,16 +585,6 @@
             
             if(juegoEmpezado && !gameOver && !victoria && controles.isLocked) {
                 
-                if(linternaEncendida) {
-                    bateriaLinterna -= 5 * delta;
-                    if(bateriaLinterna <= 0) { bateriaLinterna = 0; linternaEncendida = false; linterna.intensity = 0; }
-                    actualizarHUD();
-                } else if(bateriaLinterna < 100) {
-                    bateriaLinterna += 2 * delta;
-                    if(bateriaLinterna > 100) bateriaLinterna = 100;
-                    actualizarHUD();
-                }
-
                 if(mixerTP) mixerTP.update(delta);
 
                 const moviendose = teclas.w || teclas.s || teclas.a || teclas.d;
